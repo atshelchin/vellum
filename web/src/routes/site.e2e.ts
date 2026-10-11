@@ -51,7 +51,12 @@ test('the wallet picker says it is for Vela Wallet only', async ({ page }) => {
 });
 
 test('a number alone, or a guess, opens no diary', async ({ page }) => {
-	for (const path of ['/d/1', '/testnet/d/1', '/testnet/d/1-0000000000']) {
+	for (const path of [
+		'/d/1',
+		'/testnet/d/1',
+		'/testnet/d/1-0000000000',
+		'/testnet/d/1.1-0000000000'
+	]) {
 		// The page answers, and what it says is that there is nothing to open: the
 		// same words for a bare number as for a well-shaped guess.
 		expect((await page.goto(path))?.status()).toBe(200);
@@ -65,4 +70,35 @@ test('a number alone, or a guess, opens no diary', async ({ page }) => {
 test('there is no page that is not on one of the two networks', async ({ page }) => {
 	expect((await page.goto('/mainnet'))?.status()).toBe(404);
 	expect((await page.goto('/sepolia/new'))?.status()).toBe(404);
+});
+
+test('a link to the site unfolds into its card', async ({ page, request }) => {
+	await page.goto('/');
+	const image = await page.locator('meta[property="og:image"]').getAttribute('content');
+	expect(image).toMatch(/\/card\.png$/);
+	await expect(page.locator('meta[name="twitter:card"]')).toHaveAttribute(
+		'content',
+		'summary_large_image'
+	);
+
+	// Drawn by the worker itself, so this is also whether it can draw at all.
+	const card = await request.get('/card.png');
+	expect(card.status()).toBe(200);
+	expect(card.headers()['content-type']).toBe('image/png');
+	const png = await card.body();
+	expect(png.subarray(1, 4).toString()).toBe('PNG');
+	// 1200 by 630, where a PNG says how large it is.
+	expect(png.readUInt32BE(16)).toBe(1200);
+	expect(png.readUInt32BE(20)).toBe(630);
+});
+
+test('a guessed link has no card to show', async ({ request }) => {
+	for (const path of [
+		'/testnet/d/1-0000000000/card.png',
+		'/testnet/d/1.1-0000000000/card.png',
+		'/testnet/d/1/card.png',
+		'/d/1-0000000000/card.png'
+	]) {
+		expect((await request.get(path)).status()).toBe(404);
+	}
 });

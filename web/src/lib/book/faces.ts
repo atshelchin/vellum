@@ -1,3 +1,4 @@
+import { penNameOf } from '../format';
 import type { Diary, Entry } from '../vellum';
 import { paginate, textWidth, wrap, type Measure, type Metrics } from './layout';
 
@@ -6,8 +7,22 @@ import { paginate, textWidth, wrap, type Measure, type Metrics } from './layout'
  * is the same whenever the drawing would be.
  */
 export type Face = { key: string } & (
-	| { kind: 'bookplate'; owner: string; since: number; cover: number }
-	| { kind: 'title'; title: string; entries: number; where: string }
+	| {
+			kind: 'bookplate';
+			owner: string;
+			/** What the diary is signed with, or nothing. */
+			name: string;
+			since: number;
+			cover: number;
+	  }
+	| {
+			kind: 'title';
+			title: string;
+			entries: number;
+			where: string;
+			/** Set when the book holds one entry of the diary and no more: that entry's number. */
+			lone?: number;
+	  }
 	/** The page that faces an entry: the day it was written, and its number. */
 	| { kind: 'date'; number: number; writtenAt: number }
 	| {
@@ -23,8 +38,8 @@ export type Face = { key: string } & (
 	| { kind: 'blank'; mark: boolean }
 	/** The owner's next page, not yet written. */
 	| { kind: 'invite'; today: number }
-	/** Where a visitor's reading stops. */
-	| { kind: 'end'; entries: number }
+	/** Where a visitor's reading stops: at the last thing written, or at the end of the one page they were given. */
+	| { kind: 'end'; entries: number; lone: boolean }
 	| { kind: 'waiting' }
 );
 
@@ -54,8 +69,17 @@ export function readable(face: Face): boolean {
 export const BLANK: Face = { key: 'blank', kind: 'blank', mark: false };
 export const WAITING: Face = { key: 'waiting', kind: 'waiting' };
 
-/** The faces an entry takes up, always an even number: it begins on a left page and ends on a right. */
-export function entryFaces(entry: Entry, metrics: Metrics, measure: Measure): Face[] {
+/**
+ * The faces an entry takes up, always an even number: it begins on a left page
+ * and ends on a right. `number` is the number it is given on its date page,
+ * which is its place in the diary unless the book holds less than the diary.
+ */
+export function entryFaces(
+	entry: Entry,
+	metrics: Metrics,
+	measure: Measure,
+	number = entry.index + 1
+): Face[] {
 	const pages = paginate(
 		wrap(entry.text, textWidth(metrics), measure),
 		metrics.firstLines,
@@ -63,9 +87,9 @@ export function entryFaces(entry: Entry, metrics: Metrics, measure: Measure): Fa
 	);
 	const faces: Face[] = [
 		{
-			key: `date:${entry.index}:${entry.writtenAt}`,
+			key: `date:${number}:${entry.writtenAt}`,
 			kind: 'date',
-			number: entry.index + 1,
+			number,
 			writtenAt: entry.writtenAt
 		},
 		...pages.map((lines, page): Face => ({
@@ -93,6 +117,7 @@ export class Pages {
 	#owner: boolean;
 	#today: number;
 	#where: string;
+	#lone: number | undefined;
 	#faces = new Map<number, Face[]>();
 
 	constructor(
@@ -104,6 +129,12 @@ export class Pages {
 			today: number;
 			/** The chain the diary is kept on, as its title page names it. */
 			where: string;
+			/**
+			 * Set when the book is one entry of a diary, shared on its own: the
+			 * number that entry has in the diary. `diary` then has one entry, and
+			 * the book says of itself that it is a page and not the whole.
+			 */
+			lone?: number;
 		}
 	) {
 		this.diary = diary;
@@ -112,6 +143,7 @@ export class Pages {
 		this.#owner = options.owner;
 		this.#today = options.today;
 		this.#where = options.where;
+		this.#lone = options.lone;
 	}
 
 	get metrics(): Metrics {
@@ -120,7 +152,10 @@ export class Pages {
 
 	add(entries: Entry[]) {
 		for (const entry of entries) {
-			this.#faces.set(entry.index, entryFaces(entry, this.#metrics, this.#measure));
+			this.#faces.set(
+				entry.index,
+				entryFaces(entry, this.#metrics, this.#measure, this.#lone ?? entry.index + 1)
+			);
 		}
 	}
 
@@ -165,22 +200,25 @@ export class Pages {
 		const count = diary.entries;
 
 		if (place.entry < 0) {
+			const name = penNameOf(diary);
 			return {
 				key: `front:${count}`,
 				progress: 0,
 				left: {
-					key: `bookplate:${diary.owner}:${diary.createdAt}:${diary.cover}`,
+					key: `bookplate:${diary.owner}:${name}:${diary.createdAt}:${diary.cover}`,
 					kind: 'bookplate',
 					owner: diary.owner,
+					name,
 					since: diary.createdAt,
 					cover: diary.cover
 				},
 				right: {
-					key: `title:${diary.title}:${count}:${this.#where}`,
+					key: `title:${diary.title}:${count}:${this.#where}:${this.#lone ?? ''}`,
 					kind: 'title',
 					title: diary.title,
 					entries: count,
-					where: this.#where
+					where: this.#where,
+					lone: this.#lone
 				}
 			};
 		}
@@ -196,7 +234,12 @@ export class Pages {
 							kind: 'invite',
 							today: this.#today
 						}
-					: { key: `end:${count}`, kind: 'end', entries: count }
+					: {
+							key: `end:${count}:${this.#lone ?? ''}`,
+							kind: 'end',
+							entries: count,
+							lone: this.#lone !== undefined
+						}
 			};
 		}
 

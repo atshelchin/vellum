@@ -15,7 +15,12 @@ import { PAGE_HEIGHT, PAGE_WIDTH, textWidth, type Measure, type Metrics } from '
  * same every time it is opened.
  */
 
-export const HAND = '"Caveat Variable", "Caveat", "Segoe Print", cursive';
+/**
+ * The hand the diary is written in, and after it the faces a system may have
+ * that write Chinese by hand, for the writing Caveat has no letters for.
+ */
+export const HAND =
+	'"Caveat Variable", "Caveat", "Hannotate SC", "Kaiti SC", "STKaiti", "KaiTi", "Segoe Print", cursive';
 /**
  * Cormorant, with figures that stand on the line. Its own are old-style, in
  * which a 1 is drawn as a small capital I: handsome in a sentence, and on a
@@ -91,6 +96,39 @@ function liningFigures(): Promise<unknown> {
 	return lining;
 }
 
+/**
+ * The faces of accounts, drawn and waiting. A page is painted in one go and
+ * cannot wait for a picture, so a face is made ready before the page it is on.
+ */
+const faces = new Map<string, HTMLCanvasElement>();
+
+/**
+ * Draws an account's face ahead of the bookplate it goes on: the same face
+ * Vela Wallet shows for it (`lib/identicon.ts`). Where it cannot be drawn the
+ * plate goes without.
+ */
+export async function faceReady(address: string): Promise<void> {
+	const whose = address.toLowerCase();
+	if (faces.has(whose)) return;
+	try {
+		const { identiconSvg } = await import('../identicon');
+		const picture = new Image();
+		// A picture that does not say how large it is is drawn at no size at all.
+		const sized = identiconSvg(whose).replace('<svg ', '<svg width="320" height="320" ');
+		picture.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(sized)}`;
+		await picture.decode();
+		const canvas = canvasOf(320, 320);
+		const context = canvas.getContext('2d')!;
+		context.drawImage(picture, 0, 0, 320, 320);
+		// A browser that will not trust a picture it drew itself says so here,
+		// and not later, when the whole page would be lost with it.
+		context.getImageData(0, 0, 1, 1);
+		faces.set(whose, canvas);
+	} catch (error) {
+		console.warn('Vellum: the face of an account could not be drawn', error);
+	}
+}
+
 export async function fontsReady(text = ''): Promise<void> {
 	await liningFigures();
 	const sample = `Vellum 0123456789 ${text}`.slice(0, 4000);
@@ -101,11 +139,42 @@ export async function fontsReady(text = ''): Promise<void> {
 	]);
 }
 
+/**
+ * Chinese, Japanese and Korean, which another face has to write. Their letters
+ * fill the height of a line where the hand's fill a third of it, so at the same
+ * size they stand half as tall again beside it. They are drawn smaller: not
+ * all the way down to the hand's height, because a character with twenty
+ * strokes in it needs more room to be read than a letter with two.
+ */
+const WIDE =
+	/((?:\p{Script=Han}|\p{Script=Hiragana}|\p{Script=Katakana}|\p{Script=Hangul}|[\u3000-\u303f\uff00-\uffef])+)/u;
+const WIDE_SCALE = 0.82;
+
+/**
+ * Goes along a line a face at a time. `each` is given every run of it and how
+ * far along the line the run begins. Returns how wide the line is.
+ */
+function handRuns(
+	context: Context,
+	text: string,
+	size: number,
+	each?: (run: string, x: number) => void
+): number {
+	let x = 0;
+	// Split on a pattern that keeps what it matched: every other piece is a wide run.
+	text.split(WIDE).forEach((run, index) => {
+		if (run === '') return;
+		context.font = `500 ${index % 2 === 1 ? Math.round(size * WIDE_SCALE) : size}px ${HAND}`;
+		each?.(run, x);
+		x += context.measureText(run).width;
+	});
+	return x;
+}
+
 /** How wide the hand writes a run of text, on a page set with `metrics`. */
 export function createMeasure(metrics: Metrics): Measure {
 	const context = canvasOf(1, 1).getContext('2d')!;
-	context.font = `500 ${metrics.fontSize}px ${HAND}`;
-	return (text) => context.measureText(text).width;
+	return (text) => handRuns(context, text, metrics.fontSize);
 }
 
 /** Text with air between its letters, which a canvas cannot be relied on to do itself. */
@@ -345,7 +414,7 @@ function paintText(
 		context.translate(left + dx, y + dy);
 		context.rotate(lean);
 		context.globalAlpha = 0.9 + next() * 0.1;
-		context.fillText(line, 0, 0);
+		handRuns(context, line, metrics.fontSize, (run, x) => context.fillText(run, x, 0));
 		context.restore();
 	});
 
@@ -542,7 +611,11 @@ function paintTitle(context: Context, face: Extract<Face, { kind: 'title' }>, si
 	context.fillStyle = SEPIA;
 	context.font = `italic 500 46px ${SERIF}`;
 	context.fillText(
-		face.entries === 0 ? 'Not a word yet' : plural(face.entries, 'entry', 'entries'),
+		face.lone !== undefined
+			? `Entry ${face.lone}, shared on its own`
+			: face.entries === 0
+				? 'Not a word yet'
+				: plural(face.entries, 'entry', 'entries'),
 		centre,
 		PAGE_HEIGHT - 232
 	);
@@ -579,7 +652,9 @@ function paintBookplate(context: Context, face: Extract<Face, { kind: 'bookplate
 
 	const centre = PAGE_WIDTH / 2 - 10;
 	const width = 580;
-	const height = 640;
+	const portrait = faces.get(face.owner.toLowerCase());
+	// The plate is as tall as what is on it: a face, if one could be drawn, and a name, if it was signed.
+	const height = 560 + (portrait ? 150 : 0) + (face.name ? 56 : 0);
 	const top = (PAGE_HEIGHT - height) / 2 - 30;
 	context.save();
 	context.shadowColor = 'rgb(20 12 6 / 0.4)';
@@ -600,24 +675,66 @@ function paintBookplate(context: Context, face: Extract<Face, { kind: 'bookplate
 	context.textAlign = 'center';
 	context.fillStyle = SEPIA;
 	context.font = `600 38px ${SERIF}`;
-	spaced(context, 'EX LIBRIS', centre, top + 138, 14);
+	spaced(context, 'EX LIBRIS', centre, top + 124, 14);
 	context.fillStyle = context.strokeStyle = 'rgb(111 68 40 / 0.6)';
-	flourish(context, centre, top + 190, 120);
+	flourish(context, centre, top + 172, 120);
 
+	let y = top + 172;
+	if (portrait) {
+		// The account's face, as its wallet shows it. Whoever keeps this diary
+		// knows it on sight, which cannot be said of a row of letters.
+		const radius = 62;
+		y += 40 + radius;
+		context.save();
+		context.beginPath();
+		context.arc(centre, y, radius, 0, Math.PI * 2);
+		context.clip();
+		context.drawImage(portrait, centre - radius, y - radius, radius * 2, radius * 2);
+		context.restore();
+		context.strokeStyle = 'rgb(111 68 40 / 0.55)';
+		context.lineWidth = 2;
+		context.beginPath();
+		context.arc(centre, y, radius + 5, 0, Math.PI * 2);
+		context.stroke();
+		y += radius + 10;
+	}
+
+	y += 86;
 	context.fillStyle = SEPIA;
-	context.font = `italic 500 44px ${SERIF}`;
-	context.fillText('This diary is kept by', centre, top + 292);
+	context.font = `italic 500 42px ${SERIF}`;
+	context.fillText('This diary is kept by', centre, y);
 
-	context.fillStyle = INK;
-	context.font = `500 44px ${MONO}`;
-	context.fillText(shortAddress(face.owner as `0x${string}`), centre, top + 378);
+	const account = shortAddress(face.owner as `0x${string}`);
+	if (face.name) {
+		// Signed, in the hand the diary is written in, as large as the plate has
+		// room for. The account stays under it: a name can be anyone's.
+		let size = 100;
+		while (size > 44 && handRuns(context, face.name, size) > width - 120) size -= 4;
+		const start = centre - handRuns(context, face.name, size) / 2;
+		y += 92;
+		context.fillStyle = INK;
+		context.textAlign = 'left';
+		handRuns(context, face.name, size, (run, x) => context.fillText(run, start + x, y));
+		context.textAlign = 'center';
 
+		y += 54;
+		context.fillStyle = 'rgb(111 68 40 / 0.85)';
+		context.font = `500 27px ${MONO}`;
+		context.fillText(account, centre, y);
+	} else {
+		y += 82;
+		context.fillStyle = INK;
+		context.font = `500 44px ${MONO}`;
+		context.fillText(account, centre, y);
+	}
+
+	y += 76;
 	context.fillStyle = SEPIA;
-	context.font = `italic 500 40px ${SERIF}`;
-	context.fillText(`since ${dateParts(face.since).day}`, centre, top + 462);
+	context.font = `italic 500 38px ${SERIF}`;
+	context.fillText(`since ${dateParts(face.since).day}`, centre, y);
 
 	context.fillStyle = 'rgb(111 68 40 / 0.6)';
-	fleuron(context, centre, top + 538, 8);
+	fleuron(context, centre, y + 62, 8);
 }
 
 function paintInvite(
@@ -667,13 +784,17 @@ function paintEnd(context: Context, face: Extract<Face, { kind: 'end' }>, side: 
 	fleuron(context, centre, 596, 10);
 	context.fillStyle = SEPIA;
 	context.font = `italic 500 70px ${SERIF}`;
-	context.fillText('The rest is not', centre, 716);
-	context.fillText('written yet.', centre, 800);
+	context.fillText(face.lone ? 'The rest was' : 'The rest is not', centre, 716);
+	context.fillText(face.lone ? 'not shared.' : 'written yet.', centre, 800);
 	context.fillStyle = 'rgb(111 68 40 / 0.8)';
 	context.font = `600 30px ${SERIF}`;
 	spaced(
 		context,
-		face.entries === 0 ? 'NOT A WORD SO FAR' : `${plural(face.entries, 'ENTRY', 'ENTRIES')} SO FAR`,
+		face.lone
+			? 'ONE PAGE OF A DIARY'
+			: face.entries === 0
+				? 'NOT A WORD SO FAR'
+				: `${plural(face.entries, 'ENTRY', 'ENTRIES')} SO FAR`,
 		centre,
 		890,
 		8

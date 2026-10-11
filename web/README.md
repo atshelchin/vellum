@@ -34,6 +34,41 @@ That is deliberate, and worth keeping:
 A network with no contract yet (`undefined` in `DEPLOYED`, in `chain.ts`) is still
 there to switch to; its pages say it is not open and point to the one that is.
 
+## Links, and what they unfold into
+
+A keeper can give out two kinds of link, and the share sheet on a diary's page
+offers both:
+
+- `/d/42-9f3a1c7e5b` opens the whole diary: every page, and every page written
+  later.
+- `/d/42.7-1c7e5b9f3a` opens the diary's seventh entry and nothing else. The
+  book it shows has that one entry in it, says so on its title page, and ends
+  with "The rest was not shared." It has a key of its own, from which the
+  diary's cannot be made (`src/lib/slug.ts`).
+
+Either one, pasted where links are unfolded, shows a picture: `card.png` beside
+the page, drawn by the Worker from the chain (`src/lib/server/card/`). A diary's
+card is the book, in its leather, with its title, its size and its latest
+words. A page's card is the page: the day, and how it begins. Both show whose
+it is. A card is drawn only for a link that opens what it names, so a guessed
+number is shown nothing.
+
+The card's Latin faces travel with the site, cut down to what a card can show
+(their licences are beside them). A face that writes Chinese is a hundred times
+the size, so those letters are fetched from Google Fonts as each card is
+drawn, cut down to the characters on it. If they cannot be had in time, the
+card goes out without them and is kept for a minute and no longer.
+
+## The index by date
+
+A diary's page has a calendar, put away until it is asked for: the button
+beside Share, or the `I` key. It shows a year on one sheet, with a seal on each
+day that was written on, and pressing a seal opens the book at that day. Days
+are days where the diary is being read (`src/lib/book/calendar.ts`).
+
+It is drawn from `getEntryTimes`, which reads no text: a year of entries is
+one small call (`fetchEntryTimes` in `src/lib/vellum.ts`).
+
 ## What is where
 
 | Path                              | What it is                                                                      |
@@ -41,7 +76,10 @@ there to switch to; its pages say it is not open and point to the one that is.
 | `src/lib/chain.ts`                | The two networks: chain, nodes, the contract's address, what the coin is called |
 | `src/lib/wallet.svelte.ts`        | Wallet discovery (EIP-6963, then `window.ethereum`) and the connection          |
 | `src/lib/vellum.ts`               | Reads from the contract, and the two things an account can do                   |
-| `src/lib/slug.ts`                 | What a diary's link is made of                                                  |
+| `src/lib/slug.ts`                 | What a link to a diary, or to one page of it, is made of                        |
+| `src/lib/identicon.ts`            | An account's face, as Vela Wallet draws it                                      |
+| `src/lib/server/card/`            | The picture a shared link unfolds into, and the faces it is set in              |
+| `src/lib/book/calendar.ts`        | A diary by its dates: which days have writing on them                           |
 | `src/lib/book/Stage.ts`           | The book, in three.js: boards, stacks of pages, leaves that turn                |
 | `src/lib/book/curve.ts`           | The shape of a page lying still and of one being turned                         |
 | `src/lib/book/layout.ts`          | Where an entry's lines break and where its pages do, for the size of the screen |
@@ -65,9 +103,26 @@ there to switch to; its pages say it is not open and point to the one that is.
   asked, and that is what settles it. Treating the wallet's error as "not
   sent" is how someone pays for the same page twice; the half-written page is
   kept in the browser until it is read back from the chain.
+- **The seal is not a promise.** Sealing a page pours wax at once and keeps it
+  warm while the wallet and the chain take their time
+  (`src/lib/components/Sealing.svelte`). The die comes down only after the
+  page has been read back from the chain, never on the wallet's word, and a
+  refusal lifts the wax off again. Do not move the stamp earlier to make it
+  feel quicker: a seal on a page that then fails is a lie the reader was
+  shown.
 - **The site shows an account only its own diaries.** There is no page that
   lists anyone else's, and a diary's page opens only for its full link. Keep it
   that way: it is the whole of what "private" means here.
+- **A pen name is not who someone is.** Anyone can sign a diary with any name.
+  Wherever a pen name is shown, the account is shown with it, and where there
+  is room its face: the identicon Vela Wallet draws for the address
+  (`src/lib/identicon.ts`, held to the wallet's own test vectors). Do not show
+  a name alone, and do not change the drawing.
+- **A link to one page must not lead to the rest.** Nothing shown for a page
+  link may carry the diary's own link, or say more of the diary than its title
+  and its keeper. Only its keeper, connected, is shown the way to the whole.
+  The same goes for the server: a card, or the words under a link, are made
+  only after `slugOpens` has said the link is the right one.
 - **The book draws only when something moves.** A page lying open is a still
   picture and costs nothing. Anything added to the scene has to say when it
   needs drawing (`#invalidate`), not draw every frame.
@@ -118,6 +173,7 @@ writing). The build's root directory is `web`.
 bun run check      # types
 bun run lint       # prettier and eslint
 bun run test:unit  # vitest: pure logic in node, components in a browser
+bun run test:e2e   # playwright, against the built Worker: this is what draws a card for real
 bun run build      # the Cloudflare Worker
 ```
 

@@ -1,8 +1,8 @@
 import { browser } from '$app/env';
 
 /**
- * The few sounds a diary makes: a leaf going over, and a seal pressed into
- * wax. They are made as they are needed, from noise, so there is nothing to
+ * The few sounds a diary makes: a leaf going over, wax poured, and a seal
+ * pressed into it. They are made as they are needed, from noise, so there is nothing to
  * load.
  *
  * A browser only lets a page make sound once it has been touched. Every sound
@@ -86,6 +86,12 @@ class Sound {
 	open() {
 		this.#hiss(0, 0.5, 520, 1500, 0.07, 0.9);
 		this.#hiss(1.2, 0.14, 260, 150, 0.12, 0.7);
+	}
+
+	/** Wax let fall, hot, onto a page: a long soft breath, and a hiss over it. */
+	pour() {
+		this.#hiss(0, 1.1, 820, 300, 0.05, 0.7);
+		this.#hiss(0.12, 0.55, 2600, 1300, 0.016, 1.5);
 	}
 
 	/** A die pressed into warm wax. */

@@ -1,13 +1,13 @@
 <script lang="ts">
 	import { shortAddress } from '#lib/format.ts';
 	import { wallet } from '#lib/wallet.svelte.ts';
+	import Face from './Face.svelte';
 </script>
 
 {#if wallet.account}
 	<button class="account" onclick={() => (wallet.pickerOpen = true)}>
-		{#if wallet.current?.icon}
-			<img src={wallet.current.icon} alt="" width="20" height="20" />
-		{/if}
+		<!-- The account's own face, as its wallet shows it: how its keeper knows it is theirs. -->
+		<Face address={wallet.account} size={24} />
 		<span class="mono address">{shortAddress(wallet.account)}</span>
 		{#if wallet.canWrite}
 			<span class="tag vela">Vela</span>
@@ -25,7 +25,7 @@
 		align-items: center;
 		gap: 8px;
 		min-height: 40px;
-		padding: 0 12px 0 10px;
+		padding: 0 12px 0 7px;
 		border: 1px solid var(--border-strong);
 		border-radius: 999px;
 		background: rgb(20 16 13 / 0.6);
@@ -36,10 +36,6 @@
 
 	.account:hover {
 		border-color: var(--fg-subtle);
-	}
-
-	img {
-		border-radius: 6px;
 	}
 
 	.tag {

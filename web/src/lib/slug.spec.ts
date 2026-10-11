@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { slugId, slugOf } from './slug';
+import { pageSlugOf, slugNames, slugOf } from './slug';
 
 const CONTRACT = '0x2a8A9931E4B5A2B25E049b3D8af2E1a474d1Dd80';
 const diary = {
@@ -31,16 +31,51 @@ describe('a diary link', () => {
 	});
 
 	it('names its diary', () => {
-		expect(slugId(slugOf(diary, 1, CONTRACT))).toBe(42);
+		expect(slugNames(slugOf(diary, 1, CONTRACT))).toEqual({ id: 42 });
 	});
 
 	it('is not a bare number, or anything else', () => {
-		expect(slugId('42')).toBeNull();
-		expect(slugId('42-')).toBeNull();
-		expect(slugId('42-9f3a1c7e5')).toBeNull();
-		expect(slugId('42-9F3A1C7E5B')).toBeNull();
-		expect(slugId('-9f3a1c7e5b')).toBeNull();
-		expect(slugId('42-9f3a1c7e5b/../1')).toBeNull();
-		expect(slugId('')).toBeNull();
+		expect(slugNames('42')).toBeNull();
+		expect(slugNames('42-')).toBeNull();
+		expect(slugNames('42-9f3a1c7e5')).toBeNull();
+		expect(slugNames('42-9F3A1C7E5B')).toBeNull();
+		expect(slugNames('-9f3a1c7e5b')).toBeNull();
+		expect(slugNames('42-9f3a1c7e5b/../1')).toBeNull();
+		expect(slugNames('')).toBeNull();
+	});
+});
+
+describe('a link to one page', () => {
+	it('is the diary, the entry counted from one, and a key', () => {
+		expect(pageSlugOf(diary, 6, 1, CONTRACT)).toMatch(/^42\.7-[0-9a-f]{10}$/);
+	});
+
+	it('names its diary and its entry, counted from zero', () => {
+		expect(slugNames(pageSlugOf(diary, 6, 1, CONTRACT))).toEqual({ id: 42, entry: 6 });
+		expect(slugNames(pageSlugOf(diary, 0, 1, CONTRACT))).toEqual({ id: 42, entry: 0 });
+	});
+
+	it("has a key of its own: not the diary's, and not the next page's", () => {
+		const key = (slug: string) => slug.split('-')[1];
+		const whole = key(slugOf(diary, 1, CONTRACT));
+		const page = key(pageSlugOf(diary, 6, 1, CONTRACT));
+		expect(page).not.toBe(whole);
+		expect(key(pageSlugOf(diary, 7, 1, CONTRACT))).not.toBe(page);
+		expect(key(pageSlugOf({ ...diary, id: 43 }, 6, 1, CONTRACT))).not.toBe(page);
+	});
+
+	it('opens nothing on another chain, or another contract', () => {
+		expect(pageSlugOf(diary, 6, 5042002, CONTRACT)).not.toBe(pageSlugOf(diary, 6, 1, CONTRACT));
+		expect(pageSlugOf(diary, 6, 1, '0x0000000000000000000000000000000000000001')).not.toBe(
+			pageSlugOf(diary, 6, 1, CONTRACT)
+		);
+	});
+
+	it('has no entry nought, and no entry without a number', () => {
+		expect(slugNames('42.0-9f3a1c7e5b')).toBeNull();
+		expect(slugNames('42.-9f3a1c7e5b')).toBeNull();
+		expect(slugNames('42.07-9f3a1c7e5b')).toBeNull();
+		expect(slugNames('.7-9f3a1c7e5b')).toBeNull();
+		expect(slugNames('42.7.1-9f3a1c7e5b')).toBeNull();
 	});
 });

@@ -43,8 +43,11 @@ export interface Source {
 	neighbour(direction: 1 | -1): Spread | null;
 	/** A turn has been made: the reader is now on the spread `neighbour` last gave. */
 	turned(direction: 1 | -1): void;
-	/** The reader pressed a page that asks to be pressed, or the shut book. */
-	tapped(target: Face | 'cover'): void;
+	/**
+	 * The reader pressed a page that asks to be pressed, or the shut book, or
+	 * the desk beside the open one: somewhere that turns no page.
+	 */
+	tapped(target: Face | 'cover' | 'outside'): void;
 }
 
 export interface StageOptions {
@@ -54,6 +57,12 @@ export interface StageOptions {
 	open: boolean;
 	/** Pixels at the top and bottom of the canvas that other things are drawn over. */
 	insets?: { top: number; bottom: number };
+	/**
+	 * The insets the book is read at, where they are not the ones it is shown
+	 * at. The writing is sized for these and stays that size: a book that draws
+	 * back to make room for a toolbar must not reset its pages to do it.
+	 */
+	readingInsets?: { top: number; bottom: number };
 	/** How far right of centre the shut book sits, as a share of half the width. Wide screens only. */
 	shift?: number;
 	/** The writing changed size: every spread has to be set again. */
@@ -436,8 +445,9 @@ export class BookStage {
 		const before = this.#options.insets;
 		if (before && before.top === insets.top && before.bottom === insets.bottom) return;
 		this.#options.insets = insets;
-		// How much room the book has decides how large it is, and so how it is set.
-		this.#layout();
+		// How much room the book has decides how large it is, and so how it is
+		// set, unless it has been told what room to be set for.
+		if (!this.#options.readingInsets) this.#layout();
 		this.#invalidate();
 	}
 
@@ -1084,7 +1094,7 @@ export class BookStage {
 	#pageWidth(): number {
 		const width = this.#canvas.clientWidth;
 		const height = this.#canvas.clientHeight;
-		const insets = this.#options.insets ?? { top: 0, bottom: 0 };
+		const insets = this.#options.readingInsets ?? this.#options.insets ?? { top: 0, bottom: 0 };
 		const tilt = THREE.MathUtils.degToRad(this.#single ? SINGLE_TILT : SPREAD_TILT);
 		const halfWidth = this.#single ? WIDTH / 2 + 0.03 : WIDTH + SQUARE + this.#thickness / 2 + 0.03;
 		const halfHeight = (this.#single ? HEIGHT : BOARD_HEIGHT) / 2 + 0.03;
@@ -1412,6 +1422,12 @@ export class BookStage {
 	#tap(local: THREE.Vector3, across: number) {
 		if (this.#openness < 1) {
 			if (!this.#opening) this.source?.tapped('cover');
+			return;
+		}
+		// A press on the desk turns nothing. It is passed on, for whoever has a use for it.
+		const beyond = this.#single ? WIDTH + 0.1 : WIDTH + SQUARE + this.#thickness / 2 + 0.03;
+		if (Math.abs(local.z) > BOARD_HEIGHT / 2 + 0.03 || Math.abs(local.x) > beyond) {
+			this.source?.tapped('outside');
 			return;
 		}
 		// With both pages in view, each is pressed to turn it. With one, the

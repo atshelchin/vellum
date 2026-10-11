@@ -10,6 +10,7 @@
 	import Elsewhere from '#lib/components/Elsewhere.svelte';
 	import ExternalLink from '#lib/components/ExternalLink.svelte';
 	import Shelf from '#lib/components/Shelf.svelte';
+	import Source from '#lib/components/Source.svelte';
 	import { demoDiary } from '#lib/demo.ts';
 	import { coin } from '#lib/format.ts';
 	import { homePath } from '#lib/paths.ts';
@@ -151,6 +152,7 @@
 					<li><b>Public</b>{net.practice ? ', like the real thing' : ', and permanent'}</li>
 				</ul>
 				<Elsewhere />
+				<Source />
 			</div>
 		</section>
 

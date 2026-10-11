@@ -51,7 +51,7 @@ const arcTestnet = defineChain({
  */
 const DEPLOYED: Record<'mainnet' | 'testnet', Address | undefined> = {
 	mainnet: undefined,
-	testnet: '0xB19C2F9c703116B4E680953006fc01180AD1ab68'
+	testnet: '0x9fE4b54FB1ffF75dB2600788696df8ABa0Fbc013'
 };
 
 export interface Net {

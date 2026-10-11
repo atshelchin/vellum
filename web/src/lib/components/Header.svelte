@@ -2,6 +2,7 @@
 	import { page } from '$app/state';
 	import { BRAND } from '#lib/brand.ts';
 	import { netOf } from '#lib/chain.ts';
+	import { immersion } from '#lib/immersion.svelte.ts';
 	import { homePath } from '#lib/paths.ts';
 	import { sound } from '#lib/sound.svelte.ts';
 	import NetSwitch from './NetSwitch.svelte';
@@ -11,7 +12,7 @@
 	let net = $derived(netOf(page.params.network));
 </script>
 
-<header>
+<header class:away={immersion.on} inert={immersion.on}>
 	<a class="brand" href={homePath(net)} aria-label="{BRAND}, home">
 		<Seal size={34} />
 		<span>{BRAND}</span>
@@ -61,6 +62,19 @@
 		height: var(--header);
 		padding: 0 var(--gutter);
 		/* The book lies under the header: whatever is not a control lets a press through. */
+		pointer-events: none;
+		transition:
+			opacity 0.5s ease,
+			transform 0.5s ease;
+	}
+
+	/* A book is being read: the header leaves, and comes back when it is wanted. */
+	header.away {
+		opacity: 0;
+		transform: translateY(-14px);
+	}
+
+	header.away > :global(*) {
 		pointer-events: none;
 	}
 

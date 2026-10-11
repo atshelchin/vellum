@@ -19,7 +19,10 @@
 
 	--serif: 'Cormorant Garamond Variable', 'Cormorant Garamond', Georgia, 'Times New Roman', serif;
 	--sans: 'Inter Variable', system-ui, -apple-system, 'Segoe UI', sans-serif;
-	--hand: 'Caveat Variable', 'Caveat', 'Segoe Print', cursive;
+	/* After the hand, the faces a system may have that write Chinese by hand. */
+	--hand:
+		'Caveat Variable', 'Caveat', 'Hannotate SC', 'Kaiti SC', 'STKaiti', 'KaiTi', 'Segoe Print',
+		cursive;
 	--mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
 
 	--gutter: clamp(16px, 4vw, 40px);

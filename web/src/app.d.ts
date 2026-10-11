@@ -12,8 +12,8 @@ declare global {
 		// interface Error {}
 		// interface Locals {}
 		interface PageData {
-			/** What a link to the page says about itself when it is shared. */
-			card?: { title: string; description: string };
+			/** What a link to the page says about itself when it is shared, and the picture it shows. */
+			card?: { title: string; description: string; image: string };
 		}
 		interface PageState {
 			/** Set on arriving at a diary straight from opening it. */

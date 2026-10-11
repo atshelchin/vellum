@@ -21,6 +21,12 @@ export interface Diary {
 	cover: number;
 	entries: number;
 	title: string;
+	/**
+	 * What its keeper signed it with, or nothing. A name and not an identity:
+	 * anyone may sign with any name, so it is shown with the account, never
+	 * instead of it.
+	 */
+	penName: string;
 }
 
 export interface Entry {
@@ -34,6 +40,7 @@ export interface Entry {
 /** What an entry costs, in wei (`Vellum.FEE`). The same number on either network. */
 export const FEE = 10n ** 15n;
 export const MAX_TITLE_BYTES = 64;
+export const MAX_PEN_NAME_BYTES = 32;
 export const MAX_ENTRY_BYTES = 24_575;
 
 const encoder = new TextEncoder();
@@ -70,6 +77,7 @@ type ChainDiary = {
 	cover: number;
 	entries: bigint;
 	title: string;
+	penName: string;
 };
 
 function toDiary(diary: ChainDiary): Diary {
@@ -121,6 +129,25 @@ export async function fetchEntries(
 	};
 }
 
+/**
+ * When each entry of a diary was written, in the order they were written:
+ * what a calendar of the diary is drawn from. No text is read for it, so a
+ * year of entries is one small call.
+ */
+export async function fetchEntryTimes(net: Net, id: number): Promise<number[]> {
+	const times: number[] = [];
+	for (;;) {
+		const [page, total] = await net.client.readContract({
+			address: address(net),
+			abi: vellumAbi,
+			functionName: 'getEntryTimes',
+			args: [BigInt(id), BigInt(times.length), 2000n]
+		});
+		times.push(...page);
+		if (page.length === 0 || times.length >= Number(total)) return times;
+	}
+}
+
 /** What each of the contract's refusals means, said to a person. */
 function refusals(net: Net): Record<string, string> {
 	return {
@@ -129,6 +156,7 @@ function refusals(net: Net): Record<string, string> {
 		NoSuchEntry: 'This entry does not exist.',
 		NotOwner: 'Only the account that opened this diary can write in it.',
 		BadTitle: 'A diary needs a title, of at most 64 bytes.',
+		BadPenName: 'A pen name can be at most 32 bytes.',
 		BadEntry: 'An entry needs some words, and at most 24,575 bytes of them.',
 		WrongFee: `An entry costs exactly 0.001 ${net.coin}.`,
 		StoreFailed: `${net.chain.name} could not keep this entry.`
@@ -171,7 +199,7 @@ function sentence(text: string): string {
 }
 
 type Call =
-	| { functionName: 'create'; args: readonly [string, number] }
+	| { functionName: 'create'; args: readonly [string, string, number] }
 	| { functionName: 'write'; args: readonly [bigint, string]; value: bigint };
 
 /** What is told to whoever is waiting, as it happens. */
@@ -317,7 +345,7 @@ async function transact<T>(
 /** Opens a diary and returns it. */
 export async function createDiary(
 	net: Net,
-	input: { title: string; cover: number },
+	input: { title: string; penName: string; cover: number },
 	progress?: Progress
 ): Promise<Diary> {
 	const owner = wallet.account;
@@ -326,14 +354,19 @@ export async function createDiary(
 
 	return transact(
 		net,
-		{ functionName: 'create', args: [input.title, input.cover] },
+		{ functionName: 'create', args: [input.title, input.penName, input.cover] },
 		async () => {
 			const { diaries, total } = await fetchDiariesOf(net, owner, 0, 4);
 			// Only a diary that was not there before can be this one. Another tab may
 			// have opened one in the meantime, so it is told by its title as well.
 			return diaries
 				.slice(0, Math.max(0, total - before))
-				.find((diary) => diary.title === input.title && isAddressEqual(diary.owner, owner));
+				.find(
+					(diary) =>
+						diary.title === input.title &&
+						diary.penName === input.penName &&
+						isAddressEqual(diary.owner, owner)
+				);
 		},
 		progress
 	);

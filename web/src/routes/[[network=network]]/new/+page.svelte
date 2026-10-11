@@ -6,16 +6,24 @@
 	import { netOf } from '#lib/chain.ts';
 	import BookCanvas from '#lib/components/BookCanvas.svelte';
 	import ExternalLink from '#lib/components/ExternalLink.svelte';
-	import { coin } from '#lib/format.ts';
+	import { coin, shortAddress } from '#lib/format.ts';
 	import { diaryPath } from '#lib/paths.ts';
 	import { diarySlug } from '#lib/share.ts';
 	import { sound } from '#lib/sound.svelte.ts';
-	import { byteLength, createDiary, describeError, FEE, MAX_TITLE_BYTES } from '#lib/vellum.ts';
+	import {
+		byteLength,
+		createDiary,
+		describeError,
+		FEE,
+		MAX_PEN_NAME_BYTES,
+		MAX_TITLE_BYTES
+	} from '#lib/vellum.ts';
 	import { wallet } from '#lib/wallet.svelte.ts';
 
 	let net = $derived(netOf(page.params.network));
 
 	let title = $state('');
+	let penName = $state('');
 	let cover = $state(0);
 	let busy = $state(false);
 	/** The wallet has sent it; what is left is to read it back from the chain. */
@@ -39,10 +47,23 @@
 		return () => clearTimeout(timer);
 	});
 
+	// Whoever signed their last diary with a name is offered it again: most
+	// people have one. It is theirs to change, diary by diary.
+	const REMEMBERED = 'vellum:pen-name';
+	$effect(() => {
+		try {
+			penName = localStorage.getItem(REMEMBERED) ?? '';
+		} catch {
+			// Nothing remembered here.
+		}
+	});
+
 	let bytes = $derived(byteLength(title.trim()));
+	let signed = $derived(penName.replace(/\s+/g, ' ').trim());
 	let problem = $derived.by(() => {
 		if (bytes === 0) return 'Give it a title.';
 		if (bytes > MAX_TITLE_BYTES) return 'That title is too long to stamp on a cover.';
+		if (byteLength(signed) > MAX_PEN_NAME_BYTES) return 'That pen name is too long for the plate.';
 		return null;
 	});
 
@@ -55,9 +76,15 @@
 		try {
 			const diary = await createDiary(
 				net,
-				{ title: title.trim(), cover },
+				{ title: title.trim(), penName: signed, cover },
 				{ onSent: () => (sent = true) }
 			);
+			try {
+				if (signed) localStorage.setItem(REMEMBERED, signed);
+				else localStorage.removeItem(REMEMBERED);
+			} catch {
+				// Not remembered, then.
+			}
 			// A beat to see that it worked, before the page changes under it.
 			opened = true;
 			sound.seal();
@@ -102,6 +129,21 @@
 					placeholder="My Diary"
 					autocomplete="off"
 					maxlength="64"
+					disabled={busy}
+				/>
+			</div>
+		</label>
+
+		<label>
+			<span>Pen name <small>how it is signed inside the cover. Yours to leave blank</small></span>
+			<div class="field">
+				<input
+					bind:value={penName}
+					placeholder={wallet.account ? shortAddress(wallet.account) : 'Your account'}
+					autocomplete="off"
+					autocapitalize="words"
+					spellcheck="false"
+					maxlength="32"
 					disabled={busy}
 				/>
 			</div>
@@ -166,7 +208,7 @@
 				</p>
 			{/if}
 			<p class="accept">
-				A diary is public on {net.chain.name} and cannot be renamed, rebound or removed.
+				A diary is public on {net.chain.name} and cannot be renamed, re-signed, rebound or removed.
 			</p>
 		{/if}
 		{#if failure}

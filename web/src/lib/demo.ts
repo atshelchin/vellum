@@ -30,7 +30,8 @@ export function demoDiary(now: number): { diary: Diary; entries: Entry[] } {
 			lastWrittenAt: written[written.length - 1],
 			cover: 0,
 			entries: texts.length,
-			title: 'A Diary That Outlives Its Writer'
+			title: 'A Diary That Outlives Its Writer',
+			penName: 'A. Keeper'
 		},
 		entries: texts.map((text, index) => ({ index, writtenAt: written[index], text }))
 	};

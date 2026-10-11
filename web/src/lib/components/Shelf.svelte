@@ -3,13 +3,14 @@
 	import { BRAND, VELA } from '#lib/brand.ts';
 	import { netOf, otherNet, type Net } from '#lib/chain.ts';
 	import { diaryPath, homePath, newDiaryPath } from '#lib/paths.ts';
-	import { ago, plural } from '#lib/format.ts';
+	import { ago, penNameOf, plural } from '#lib/format.ts';
 	import { diarySlug } from '#lib/share.ts';
 	import { describeError, fetchDiariesOf, type Diary } from '#lib/vellum.ts';
 	import { wallet } from '#lib/wallet.svelte.ts';
 	import CoverThumb from './CoverThumb.svelte';
 	import Elsewhere from './Elsewhere.svelte';
 	import ExternalLink from './ExternalLink.svelte';
+	import Source from './Source.svelte';
 
 	const PAGE = 12;
 
@@ -102,6 +103,7 @@
 					<a href={diaryPath(net, diarySlug(net, diary))}>
 						<CoverThumb title={diary.title} cover={diary.cover} />
 						<span class="title">{diary.title}</span>
+						{#if penNameOf(diary)}<span class="signed">as {penNameOf(diary)}</span>{/if}
 						<span class="meta">
 							{diary.entries === 0 ? 'Not a word yet' : plural(diary.entries, 'entry', 'entries')}
 							{#if diary.lastWrittenAt}· {ago(diary.lastWrittenAt, now)}{/if}
@@ -122,6 +124,7 @@
 	{/if}
 
 	<Elsewhere />
+	<Source />
 </main>
 
 <style>
@@ -172,6 +175,17 @@
 		font-weight: 600;
 		line-height: 1.15;
 		overflow-wrap: anywhere;
+	}
+
+	/* The name this one is signed with: an account may keep several diaries under several. */
+	.signed {
+		font-family: var(--serif);
+		font-size: 16px;
+		font-style: italic;
+		color: var(--fg-muted);
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
 	}
 
 	.meta {

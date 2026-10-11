@@ -15,7 +15,8 @@ const diary = (entries: number): Diary => ({
 	lastWrittenAt: 0,
 	cover: 2,
 	entries,
-	title: 'Field Notes'
+	title: 'Field Notes',
+	penName: ''
 });
 
 const entry = (index: number, lineCount = 3): Entry => ({
@@ -146,5 +147,53 @@ describe('reading one page at a time', () => {
 			'text:true',
 			'blank:false'
 		]);
+	});
+});
+
+describe('one page of a diary, shared on its own', () => {
+	const lone = () => {
+		const book = new Pages(diary(1), {
+			metrics,
+			measure,
+			owner: false,
+			today: 1_800_000_000,
+			where: 'Ethereum',
+			lone: 12
+		});
+		// Read as the first and only entry of what the book holds.
+		book.add([entry(0)]);
+		return book;
+	};
+
+	it('keeps the number it has in the diary', () => {
+		expect(lone().at({ entry: 0, spread: 0 }).left).toMatchObject({ kind: 'date', number: 12 });
+	});
+
+	it('says on its title page that it is one page, and which', () => {
+		expect(lone().at({ entry: -1, spread: 0 }).right).toMatchObject({ kind: 'title', lone: 12 });
+	});
+
+	it('ends by saying the rest was not shared', () => {
+		expect(lone().at({ entry: 1, spread: 0 }).right).toMatchObject({ kind: 'end', lone: true });
+	});
+
+	it('has nothing to turn to but its title, its entry and its end', () => {
+		const book = lone();
+		let place: Place | null | undefined = { entry: -1, spread: 0 };
+		const seen: number[] = [];
+		while (place) {
+			seen.push(place.entry);
+			place = book.step(place, 1);
+		}
+		expect(seen).toEqual([-1, 0, 1]);
+	});
+
+	it('is not what a whole diary says of itself', () => {
+		const whole = pages([entry(0)]);
+		expect(whole.at({ entry: -1, spread: 0 }).right).toMatchObject({ lone: undefined });
+		expect(whole.at({ entry: 1, spread: 0 }).right).toMatchObject({ kind: 'end', lone: false });
+		expect(whole.at({ entry: -1, spread: 0 }).right.key).not.toBe(
+			lone().at({ entry: -1, spread: 0 }).right.key
+		);
 	});
 });

@@ -4,6 +4,25 @@ export function shortAddress(address: Address): string {
 	return `${address.slice(0, 6)}…${address.slice(-4)}`;
 }
 
+/**
+ * A pen name as it is shown: on one line, with nothing in it that would take
+ * the line over. What a diary is signed with is whatever its keeper typed.
+ */
+export function penNameOf(diary: { penName: string }): string {
+	return (
+		diary.penName
+			// Marks that turn the writing round, or join or hide letters, have no place in a name.
+			.replace(/[\u200b-\u200f\u202a-\u202e\u2066-\u2069\ufeff]/g, '')
+			.replace(/\s+/g, ' ')
+			.trim()
+	);
+}
+
+/** Who keeps a diary, in a few words: the name it is signed with, or failing that its account. */
+export function keeperOf(diary: { owner: Address; penName: string }): string {
+	return penNameOf(diary) || shortAddress(diary.owner);
+}
+
 /** An amount of the chain's coin, without trailing zeros: `0.001`. Rounds down. */
 export function coin(amount: bigint, digits = 4): string {
 	const [whole, fraction = ''] = formatUnits(amount, 18).split('.');

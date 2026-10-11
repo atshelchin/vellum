@@ -10,7 +10,9 @@
 			? 'Title page'
 			: reader.atEnd
 				? 'The last page'
-				: `Entry ${reader.place.entry + 1} of ${count}`
+				: reader.lone !== undefined
+					? `Entry ${reader.lone}`
+					: `Entry ${reader.place.entry + 1} of ${count}`
 	);
 	let when = $derived(reader.entry ? dateParts(reader.entry.writtenAt).day : '');
 </script>

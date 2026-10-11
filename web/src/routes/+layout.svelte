@@ -30,12 +30,14 @@
 			(net.practice
 				? {
 						title: `${BRAND} — the practice book`,
-						description: `Try ${BRAND}, the diary kept on Ethereum, on ${net.chain.name} first: turn its pages, write one, and it costs nothing. For Vela Wallet.`
+						description: `Try ${BRAND}, the diary kept on Ethereum, on ${net.chain.name} first: turn its pages, write one, and it costs nothing. For Vela Wallet.`,
+						image: '/card.png'
 					}
 				: {
 						title: `${BRAND} — a diary kept on Ethereum`,
 						description:
-							'A diary you turn page by page, written on Ethereum and kept there for good. For Vela Wallet.'
+							'A diary you turn page by page, written on Ethereum and kept there for good. For Vela Wallet.',
+						image: '/card.png'
 					})
 	);
 
@@ -66,7 +68,10 @@
 	<meta property="og:title" content={card.title} />
 	<meta property="og:description" content={card.description} />
 	<meta property="og:url" content={page.url.href} />
-	<meta name="twitter:card" content="summary" />
+	<meta property="og:image" content="{page.url.origin}{card.image}" />
+	<meta property="og:image:width" content="1200" />
+	<meta property="og:image:height" content="630" />
+	<meta name="twitter:card" content="summary_large_image" />
 	<meta name="twitter:site" content={MAKER_ON_X} />
 	<link rel="icon" href={favicon} />
 </svelte:head>

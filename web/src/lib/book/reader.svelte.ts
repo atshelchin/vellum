@@ -16,10 +16,20 @@ export interface ReaderOptions {
 	where: string;
 	/** Reads entries `offset` to `offset + limit`, in the order they were written. */
 	fetch: (offset: number, limit: number) => Promise<Entry[]>;
+	/** Reads when every entry was written, in the order they were written. */
+	fetchTimes?: () => Promise<number[]>;
+	/**
+	 * Set when what is being read is one entry of a diary, shared on its own:
+	 * the number that entry has in the diary. `diary` then has that one entry
+	 * and `fetch` reads it as its first.
+	 */
+	lone?: number;
 	/** The blank page that asks to be written on was pressed. */
 	onInvite?: () => void;
 	/** The shut book was pressed. */
 	onCover?: () => void;
+	/** The desk beside the open book was pressed. */
+	onOutside?: () => void;
 }
 
 /**
@@ -38,6 +48,13 @@ export class Reader implements Source {
 	/** How many chunks are being read from the chain right now. */
 	loading = $state(0);
 	failed = $state(false);
+	/**
+	 * When each entry was written, once somebody has asked: what the diary's
+	 * calendar is drawn from. Nobody reading straight through needs it.
+	 */
+	times = $state.raw<number[]>();
+	/** The dates were asked for and did not come. */
+	timesFailed = $state(false);
 
 	#options: ReaderOptions;
 	#stage: BookStage | undefined;
@@ -48,6 +65,7 @@ export class Reader implements Source {
 	// eslint-disable-next-line svelte/prefer-svelte-reactivity
 	#reading = new Map<number, Promise<void>>();
 	#today = Math.floor(Date.now() / 1000);
+	#timing: Promise<void> | undefined;
 
 	constructor(options: ReaderOptions) {
 		this.#options = options;
@@ -61,15 +79,26 @@ export class Reader implements Source {
 			measure: createMeasure(metrics),
 			owner: this.#options.owner,
 			today: this.#today,
-			where: this.#options.where
+			where: this.#options.where,
+			lone: this.#options.lone
 		});
 		pages.add([...this.#entries.values()]);
 		return pages;
 	}
 
+	/** The number in the diary of the one entry being read, if one entry is all there is to read. */
+	get lone(): number | undefined {
+		return this.#options.lone;
+	}
+
 	/** The entry the reader is on, if they are on one and it has been read. */
 	get entry(): Entry | undefined {
 		return this.#entries.get(this.place.entry);
+	}
+
+	/** An entry by its place, if it has been read. */
+	entryAt(index: number): Entry | undefined {
+		return this.#entries.get(index);
 	}
 
 	get spread(): Spread {
@@ -120,8 +149,9 @@ export class Reader implements Source {
 		void this.#around(next.entry);
 	}
 
-	tapped(target: Face | 'cover') {
+	tapped(target: Face | 'cover' | 'outside') {
 		if (target === 'cover') this.#options.onCover?.();
+		else if (target === 'outside') this.#options.onOutside?.();
 		else if (target.kind === 'invite') this.#options.onInvite?.();
 	}
 
@@ -152,11 +182,36 @@ export class Reader implements Source {
 		void this.#around(target);
 	}
 
+	/** Reads the dates of every entry, once. Asking again while they are on their way waits for the same answer. */
+	readTimes(): Promise<void> {
+		const fetch = this.#options.fetchTimes;
+		if (!fetch || this.times) return Promise.resolve();
+		return (this.#timing ??= (async () => {
+			this.timesFailed = false;
+			try {
+				const times = await fetch();
+				// An entry sealed while the dates were being read is in neither answer for certain: what was seen wins.
+				for (const entry of this.#entries.values()) times[entry.index] = entry.writtenAt;
+				this.times = times;
+			} catch (error) {
+				console.error('Vellum: the dates could not be read', error);
+				this.timesFailed = true;
+			} finally {
+				this.#timing = undefined;
+			}
+		})());
+	}
+
 	/** The diary changed on the chain: an entry was written. */
 	async update(diary: Diary, written?: Entry) {
 		this.diary = diary;
 		this.#pages.diary = diary;
 		if (written) {
+			if (this.times) {
+				const times = [...this.times];
+				times[written.index] = written.writtenAt;
+				this.times = times;
+			}
 			await fontsReady(written.text);
 			this.#entries.set(written.index, written);
 			this.#pages.add([written]);
