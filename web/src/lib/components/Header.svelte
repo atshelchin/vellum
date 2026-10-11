@@ -12,7 +12,7 @@
 	let net = $derived(netOf(page.params.network));
 </script>
 
-<header class:away={immersion.on} inert={immersion.on}>
+<header class:away={immersion.on} class:paper={immersion.paper} inert={immersion.on}>
 	<a class="brand" href={homePath(net)} aria-label="{BRAND}, home">
 		<Seal size={34} />
 		<span>{BRAND}</span>
@@ -53,19 +53,22 @@
 	header {
 		position: absolute;
 		z-index: 10;
-		top: env(safe-area-inset-top);
+		top: 0;
 		left: 0;
 		right: 0;
 		display: flex;
 		align-items: center;
 		gap: 10px;
-		height: var(--header);
-		padding: 0 var(--gutter);
+		height: calc(var(--header) + env(safe-area-inset-top));
+		padding: env(safe-area-inset-top) var(--gutter) 0;
+		border-bottom: 1px solid transparent;
 		/* The book lies under the header: whatever is not a control lets a press through. */
 		pointer-events: none;
 		transition:
 			opacity 0.5s ease,
-			transform 0.5s ease;
+			transform 0.5s ease,
+			background-color 0.4s ease,
+			border-color 0.4s ease;
 	}
 
 	/* A book is being read: the header leaves, and comes back when it is wanted. */
@@ -80,6 +83,29 @@
 
 	header > :global(*) {
 		pointer-events: auto;
+	}
+
+	/* Over paper, glass that the paper shows through goes the colour of mud: there it is all but solid. */
+	header.paper {
+		--glass: rgb(20 16 13 / 0.94);
+	}
+
+	/*
+	 * Over paper that has the screen to itself there is no dark to be read
+	 * against, and things made for the dark look lost on it. So the header
+	 * brings its own: it is a bar across the top, of the room the paper lies in.
+	 */
+	@media (max-width: 1100px) {
+		header.paper {
+			border-bottom-color: var(--border);
+			background-color: var(--bg);
+			pointer-events: auto;
+		}
+
+		header.paper.away {
+			transform: translateY(-100%);
+			pointer-events: none;
+		}
 	}
 
 	.brand {
@@ -108,7 +134,7 @@
 		flex: none;
 		border: 1px solid var(--border-strong);
 		border-radius: 50%;
-		background: rgb(20 16 13 / 0.6);
+		background: var(--glass);
 		backdrop-filter: blur(10px);
 		color: var(--fg-muted);
 		cursor: pointer;
@@ -119,8 +145,8 @@
 		color: var(--fg);
 	}
 
-	/* On a phone the seal is name enough, and the room goes to the switch. */
-	@media (max-width: 480px) {
+	/* On a narrow screen the seal is name enough, and the room goes to the switch. */
+	@media (max-width: 720px) {
 		header {
 			gap: 8px;
 		}

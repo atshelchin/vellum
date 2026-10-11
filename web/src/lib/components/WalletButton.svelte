@@ -28,9 +28,11 @@
 		padding: 0 12px 0 7px;
 		border: 1px solid var(--border-strong);
 		border-radius: 999px;
-		background: rgb(20 16 13 / 0.6);
+		background: var(--glass);
 		backdrop-filter: blur(10px);
 		font-size: 13px;
+		white-space: nowrap;
+		flex: none;
 		cursor: pointer;
 	}
 
@@ -53,8 +55,12 @@
 		color: var(--gold-strong);
 	}
 
-	/* On a phone the tag says enough; the address is one tap away. */
-	@media (max-width: 420px) {
+	.address {
+		white-space: nowrap;
+	}
+
+	/* On a phone the face and the tag say enough; the address is one tap away. */
+	@media (max-width: 480px) {
 		.address {
 			display: none;
 		}
@@ -64,7 +70,7 @@
 		min-height: 40px;
 		padding: 0 18px;
 		font-size: 14px;
-		background: rgb(20 16 13 / 0.6);
+		background: var(--glass);
 		backdrop-filter: blur(10px);
 	}
 </style>

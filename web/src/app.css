@@ -14,6 +14,8 @@
 	--wax: #c8463a;
 	--paper: #f4ecd9;
 	--ink: #1b2540;
+	/* What the header's controls are made of: dark glass, for lying over a book in a dark room. */
+	--glass: rgb(20 16 13 / 0.6);
 	--success: #7fc79a;
 	--error: #f08a7c;
 

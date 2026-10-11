@@ -35,7 +35,7 @@
 		padding: 3px;
 		border: 1px solid var(--border-strong);
 		border-radius: 999px;
-		background: rgb(20 16 13 / 0.6);
+		background: var(--glass);
 		backdrop-filter: blur(10px);
 	}
 
@@ -62,7 +62,7 @@
 	}
 
 	/* Three names, a seal, a wallet and a phone: the names are the part that can give. */
-	@media (max-width: 480px) {
+	@media (max-width: 720px) {
 		a {
 			padding: 5px 9px;
 		}
