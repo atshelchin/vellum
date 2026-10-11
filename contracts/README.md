@@ -97,9 +97,15 @@ forge script script/Deploy.s.sol --rpc-url arc_testnet --sender $DEPLOYER_ADDRES
 # Arc Testnet first.
 forge script script/Deploy.s.sol --rpc-url arc_testnet --broadcast --private-key $DEPLOYER_PRIVATE_KEY
 
-# Then Ethereum, when it is time.
+# Then Arc and Ethereum, when it is time. The practice book is given a while
+# first: once the contract is on either of these it is the contract.
+forge script script/Deploy.s.sol --rpc-url arc --broadcast --private-key $DEPLOYER_PRIVATE_KEY
 forge script script/Deploy.s.sol --rpc-url mainnet --broadcast --private-key $DEPLOYER_PRIVATE_KEY
 ```
+
+Before either, see that `TREASURY` can be paid on that chain. The one below is
+a Safe on Ethereum; on Arc there is nothing at that address yet, and what is
+withdrawn to it there is out of reach until the same Safe is set up there.
 
 Run again on a chain that already has it, the script says so and sends nothing.
 
@@ -127,6 +133,7 @@ Whoever holds that domain is who the contract points people to.
 | Network     | Chain id | Vellum                                       |
 | ----------- | -------- | -------------------------------------------- |
 | Arc Testnet | 5042002  | `0x9fE4b54FB1ffF75dB2600788696df8ABa0Fbc013` |
+| Arc         | 5042     | not yet; it will have the same address       |
 | Ethereum    | 1        | not yet; it will have the same address       |
 
 Treasury: `0xEf33771897CadcA768DE0e267dE4c328EBA0f7De`. On Arc Testnet the

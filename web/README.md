@@ -14,13 +14,14 @@ bun run dev
 Nothing needs setting. `.env.example` lists what can be pointed elsewhere, for
 a fork or a new build of the contract.
 
-## Two networks, in one site
+## Three networks, in one site
 
-Every page exists twice: at `/…` on Ethereum, and at `/testnet/…` on Arc
-Testnet, the practice book. Which one a page is on comes from its address
-(`src/params.ts` and `netOf` in `src/lib/chain.ts`) and from nowhere else.
-Nothing is remembered between pages, and no module holds a "current network":
-whatever reads or writes the chain is handed the network it is for.
+Every page exists three times: at `/…` on Ethereum, at `/arc/…` on Arc, and at
+`/testnet/…` on Arc Testnet, the practice book. Which one a page is on comes
+from its address (`src/params.ts` and `netOf` in `src/lib/chain.ts`) and from
+nowhere else. Nothing is remembered between pages, and no module holds a
+"current network": whatever reads or writes the chain is handed the network it
+is for.
 
 That is deliberate, and worth keeping:
 
@@ -28,11 +29,14 @@ That is deliberate, and worth keeping:
   from the chain and the contract, so a practice link opens nothing on Ethereum.
 - The server renders many requests at once. A network kept in a variable would
   be shared between them.
-- On the practice book, nothing may promise that a page lasts. Copy that
-  differs is chosen by `net.practice`.
+- What a page may promise depends on where it is. Only Ethereum is said to
+  keep a page for good (`keeping` in `chain.ts`); on the practice book nothing
+  may promise that a page lasts (`practice`). What each network says of itself
+  is written down once, with the network, and not chosen page by page.
 
 A network with no contract yet (`undefined` in `DEPLOYED`, in `chain.ts`) is still
-there to switch to; its pages say it is not open and point to the one that is.
+there to switch to; its pages say it is not open and point to one that is, the
+practice book first.
 
 ## Links, and what they unfold into
 
@@ -53,31 +57,84 @@ words. A page's card is the page: the day, and how it begins. Both show whose
 it is. A card is drawn only for a link that opens what it names, so a guessed
 number is shown nothing.
 
-The card's Latin faces travel with the site, cut down to what a card can show
-(their licences are beside them). A face that writes Chinese is a hundred times
-the size, so those letters are fetched from Google Fonts as each card is
-drawn, cut down to the characters on it. If they cannot be had in time, the
-card goes out without them and is kept for a minute and no longer.
+The card is set in the same faces as the book, read from the same files: see
+[the faces](#the-faces), below. Nothing is asked of anyone else's server to
+draw one.
 
 ## The index by date
 
 A diary's page has a calendar, put away until it is asked for: the button
 beside Share, or the `I` key. It shows a year on one sheet, with a seal on each
-day that was written on, and pressing a seal opens the book at that day. Days
-are days where the diary is being read (`src/lib/book/calendar.ts`).
+day that was written on, and pressing a seal opens the book at that day. There
+is a sheet for every year from the one the diary was opened in to this one,
+and the years on either side are named beside the one shown. Days are days
+where the diary is being read (`src/lib/book/calendar.ts`).
 
 It is drawn from `getEntryTimes`, which reads no text: a year of entries is
 one small call (`fetchEntryTimes` in `src/lib/vellum.ts`).
+
+## The faces
+
+A diary is read at length, like a novel, so it is set the way one is: in faces
+made for reading at length, with a little character and nothing that tires the
+eye. No script, no brush, no handwriting. And every writing has a face of its
+own, because no one face reads well in all of them. `src/lib/scripts.ts` is the
+one list:
+
+| Writing                            | Face                  | Why this one                                           |
+| ---------------------------------- | --------------------- | ------------------------------------------------------ |
+| Latin, Cyrillic, Greek, Vietnamese | Literata              | Drawn for reading books on a screen                    |
+| Chinese, Japanese                  | LXGW WenKai           | A pen's regular script; simplified, traditional, kana  |
+| Korean                             | Gowun Batang          | A batang, as Korean novels are set in, a little softer |
+| Thai                               | Noto Serif Thai       | Looped, as a Thai reader expects of a book             |
+| Hindi and the rest of Devanagari   | Noto Serif Devanagari | A text serif                                           |
+| Arabic, Persian, Urdu              | Noto Naskh Arabic     | A naskh, which a book in Arabic is set in              |
+| Hebrew                             | Frank Ruhl Libre      | The face of nearly every Hebrew novel                  |
+
+Titles and dates are in Cormorant Garamond. A writing that is not listed is
+drawn in whatever the device has.
+
+Three things keep that list true everywhere a diary is seen:
+
+- **Each face is offered for its own writing and nothing else.** A face for
+  one writing always carries a little of another, and a line drawn by whichever
+  face a browser reaches first comes out in two hands. The build narrows each
+  face's style sheet to the characters the list gives it (`vite.config.ts`),
+  so a line in one font stack is drawn letter by letter in the right face,
+  whichever way it runs. Lines that start in Arabic or Hebrew are set from the
+  right.
+- **A face is fetched when its writing turns up, and only the pieces it
+  needs.** The Chinese face is megabytes, cut into about a hundred pieces; a
+  page with Chinese on it fetches the few that hold its characters
+  (`src/lib/typefaces.ts`). Whoever never reads Thai never fetches a byte of
+  it.
+- **A card is drawn from the same pieces.** The Worker reads the same style
+  sheets to find which piece holds which character, and the same files
+  (`src/lib/server/card/fonts.ts`). The faces for Latin, Cyrillic, Greek and
+  Vietnamese are small enough to carry whole; `scripts/card-fonts.py` cuts
+  them, and says how.
+
+What draws the cards cannot yet be trusted with Devanagari or Arabic: it
+misplaces vowel signs in the one and loses the full stops in the other. Those
+two are on the pages, where a browser sets them properly, and are left off the
+cards (`card: false` in the list) until it can. Japanese is written in the
+face for Chinese, which was drawn from a Japanese one, in the shapes a reader
+of simplified Chinese was taught.
+
+To change a face, change it in the list, in `--other-writing` in `app.css`,
+and in the two places that import its files (`typefaces.ts` and
+`server/card/fonts.ts`): the types will say if one was missed.
 
 ## What is where
 
 | Path                              | What it is                                                                      |
 | --------------------------------- | ------------------------------------------------------------------------------- |
-| `src/lib/chain.ts`                | The two networks: chain, nodes, the contract's address, what the coin is called |
+| `src/lib/chain.ts`                | The three networks: chain, nodes, the contract's address, what each is for      |
 | `src/lib/wallet.svelte.ts`        | Wallet discovery (EIP-6963, then `window.ethereum`) and the connection          |
 | `src/lib/vellum.ts`               | Reads from the contract, and the two things an account can do                   |
 | `src/lib/slug.ts`                 | What a link to a diary, or to one page of it, is made of                        |
 | `src/lib/identicon.ts`            | An account's face, as Vela Wallet draws it                                      |
+| `src/lib/scripts.ts`              | Which typeface writes which writing: the one list of them                       |
 | `src/lib/server/card/`            | The picture a shared link unfolds into, and the faces it is set in              |
 | `src/lib/book/calendar.ts`        | A diary by its dates: which days have writing on them                           |
 | `src/lib/book/Stage.ts`           | The book, in three.js: boards, stacks of pages, leaves that turn                |
@@ -153,7 +210,7 @@ the fork's contract does not exist.
 
 ## Deploy it
 
-The site is one Cloudflare Worker, `vellum`, for both networks:
+The site is one Cloudflare Worker, `vellum`, for all three networks:
 
 ```sh
 bun run build

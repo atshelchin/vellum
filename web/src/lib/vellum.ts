@@ -242,11 +242,11 @@ async function transact<T>(
 	if (!account) throw new Outcome('Connect a wallet first.');
 
 	/** How often the chain is asked whether the call has taken effect. */
-	const poll = net.practice ? 1000 : 3000;
+	const poll = net.settle.every;
 	// How long after the wallet says a transaction is in a block the page goes
 	// on looking for what it did. Long enough for a public node to catch up with
 	// the one the wallet used; short enough that nobody is left staring at a button.
-	const settleWithin = net.practice ? 20_000 : 90_000;
+	const settleWithin = net.settle.within;
 
 	try {
 		// A dry run names the reason a call would fail before anything is signed.

@@ -1,10 +1,9 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
 	import { page } from '$app/state';
 	import { Reader } from '#lib/book/reader.svelte.ts';
 	import type { BookStage } from '#lib/book/Stage.ts';
 	import { BRAND } from '#lib/brand.ts';
-	import { netOf, otherNet } from '#lib/chain.ts';
+	import { netOf, openElsewhere, type Net } from '#lib/chain.ts';
 	import BookCanvas from '#lib/components/BookCanvas.svelte';
 	import BookNav from '#lib/components/BookNav.svelte';
 	import Elsewhere from '#lib/components/Elsewhere.svelte';
@@ -19,7 +18,35 @@
 	import { wallet } from '#lib/wallet.svelte.ts';
 
 	let net = $derived(netOf(page.params.network));
-	let other = $derived(otherNet(net));
+	/** Where there is a Vellum to go to, for a network that has none yet. */
+	let meanwhile = $derived(openElsewhere(net)[0]);
+
+	/**
+	 * What each network says of itself at the head of its front page. Only
+	 * Ethereum says a diary outlives its writer: it is the one of the three
+	 * that anyone would stake fifty years on.
+	 */
+	const HERO: Record<Net['id'], { eyebrow: string; title: string; lede: string; last: string }> = {
+		ethereum: {
+			eyebrow: 'On Ethereum · for Vela Wallet',
+			title: 'A diary that outlives its writer.',
+			lede: 'Write a page and seal it on Ethereum. Nobody can change it afterwards, not even you. Turn back to it in fifty years.',
+			last: ', and permanent'
+		},
+		arc: {
+			eyebrow: 'On Arc · for Vela Wallet',
+			title: 'A diary for every day.',
+			lede: 'Write a page and seal it on Arc, for a fraction of a cent. Nobody can change it afterwards, not even you. For the pages you want kept for good, there is Ethereum.',
+			last: ', and not to be changed'
+		},
+		testnet: {
+			eyebrow: 'Practice book · Arc Testnet',
+			title: 'A diary that outlives its writer.',
+			lede: 'On Ethereum, that is what it is. Here you try it first: write a page, seal it on Arc Testnet with free test USDC, and see how it works.',
+			last: ', like the real thing'
+		}
+	};
+	let hero = $derived(HERO[net.id]);
 
 	let reader = $state<Reader>();
 	let stage = $state<BookStage>();
@@ -41,13 +68,17 @@
 				: { top: 64, bottom: Math.min(copyHeight + 44, Math.round(viewport.height * 0.68)) }
 	);
 
-	onMount(() => {
-		const { diary, entries } = demoDiary(Math.floor(Date.now() / 1000));
+	// The diary on the front page speaks of the network the page is on, so
+	// there is another one on the desk whenever that changes.
+	$effect(() => {
+		const { diary, entries } = demoDiary(Math.floor(Date.now() / 1000), net);
+		reading = false;
+		stage = undefined;
 		reader = new Reader({
 			diary,
 			owner: false,
-			// The diary on the front page is about the real thing, whichever site shows it.
-			where: 'Ethereum',
+			// On the practice book it is about the real thing, which is on Ethereum.
+			where: net.practice ? 'Ethereum' : net.chain.name,
 			fetch: async (offset, limit) => entries.slice(offset, offset + limit),
 			onCover: open
 		});
@@ -78,7 +109,13 @@
 </script>
 
 <svelte:head>
-	<title>{BRAND} — {net.practice ? 'the practice book' : 'a diary kept on Ethereum'}</title>
+	<title
+		>{BRAND} — {net.practice
+			? 'the practice book'
+			: net.id === 'arc'
+				? 'a diary for every day'
+				: 'a diary kept on Ethereum'}</title
+	>
 </svelte:head>
 
 <svelte:window bind:innerWidth={viewport.width} bind:innerHeight={viewport.height} {onkeydown} />
@@ -88,48 +125,38 @@
 {:else}
 	<div class="page" class:reading>
 		<div class="scene">
-			{#if reader}
-				<BookCanvas
-					binding={{
-						title: reader.diary.title,
-						cover: reader.diary.cover,
-						entries: reader.diary.entries
-					}}
-					{reader}
-					{insets}
-					shift={0.44}
-					bind:stage
-					bind:unavailable
-				/>
-			{/if}
+			{#key reader}
+				{#if reader}
+					<BookCanvas
+						binding={{
+							title: reader.diary.title,
+							cover: reader.diary.cover,
+							entries: reader.diary.entries
+						}}
+						{reader}
+						{insets}
+						shift={0.44}
+						bind:stage
+						bind:unavailable
+					/>
+				{/if}
+			{/key}
 		</div>
 
 		<section class="hero" inert={reading}>
 			<div class="copy" bind:clientHeight={copyHeight}>
-				{#if net.practice}
-					<p class="eyebrow">Practice book · {net.chain.name}</p>
-					<h1>A diary that outlives its writer.</h1>
-					<p class="lede">
-						On Ethereum, that is what it is. Here you try it first: write a page, seal it on
-						{net.chain.name} with free test USDC, and see how it works.
-					</p>
-				{:else}
-					<p class="eyebrow">On {net.chain.name} · for Vela Wallet</p>
-					<h1>A diary that outlives its writer.</h1>
-					<p class="lede">
-						Write a page and seal it on Ethereum. Nobody can change it afterwards, not even you.
-						Turn back to it in fifty years.
-					</p>
-				{/if}
+				<p class="eyebrow">{hero.eyebrow}</p>
+				<h1>{hero.title}</h1>
+				<p class="lede">{hero.lede}</p>
 				<div class="actions">
 					{#if net.vellum}
 						<button class="button primary" onclick={() => (wallet.pickerOpen = true)}>
 							Connect Vela Wallet
 						</button>
-					{:else if other.vellum}
+					{:else if meanwhile}
 						<!-- Not here yet, but there: the one thing worth pressing is the way across. -->
-						<a class="button primary" href={homePath(other)}>
-							Try it on {other.chain.name}
+						<a class="button primary" href={homePath(meanwhile)}>
+							Try it on {meanwhile.chain.name}
 						</a>
 					{/if}
 					{#if !unavailable}
@@ -138,7 +165,7 @@
 				</div>
 				{#if !net.vellum}
 					<p class="notice">
-						{BRAND} is not on {net.chain.name} yet. It opens here soon{other.vellum
+						{BRAND} is not on {net.chain.name} yet. It opens here soon{meanwhile?.practice
 							? ', and the practice book is open now.'
 							: '.'}
 					</p>
@@ -149,7 +176,7 @@
 							<ExternalLink href={net.faucet}>free from the faucet</ExternalLink>{/if}
 					</li>
 					<li><b>As many</b> diaries and pages as you like</li>
-					<li><b>Public</b>{net.practice ? ', like the real thing' : ', and permanent'}</li>
+					<li><b>Public</b>{hero.last}</li>
 				</ul>
 				<Elsewhere />
 				<Source />

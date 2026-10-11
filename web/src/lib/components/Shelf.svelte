@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import { BRAND, VELA } from '#lib/brand.ts';
-	import { netOf, otherNet, type Net } from '#lib/chain.ts';
+	import { netOf, openElsewhere, type Net } from '#lib/chain.ts';
 	import { diaryPath, homePath, newDiaryPath } from '#lib/paths.ts';
 	import { ago, penNameOf, plural } from '#lib/format.ts';
 	import { diarySlug } from '#lib/share.ts';
@@ -15,7 +15,7 @@
 	const PAGE = 12;
 
 	let net = $derived(netOf(page.params.network));
-	let other = $derived(otherNet(net));
+	let others = $derived(openElsewhere(net));
 
 	let diaries = $state<Diary[]>([]);
 	let total = $state<number | null>(null);
@@ -67,7 +67,9 @@
 	{#if !net.vellum}
 		<p class="notice">
 			{BRAND} is not on {net.chain.name} yet.
-			{#if other.vellum}<a href={homePath(other)}>Your shelf on {other.chain.name} →</a>{/if}
+			{#each others as other (other.id)}
+				<a href={homePath(other)}>Your shelf on {other.chain.name} →</a>
+			{/each}
 		</p>
 	{:else if wallet.standing === 'not-vela'}
 		<p class="notice">

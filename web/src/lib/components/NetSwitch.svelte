@@ -1,30 +1,30 @@
 <script lang="ts">
 	import { page } from '$app/state';
-	import { NETS, netOf } from '#lib/chain.ts';
+	import { NET_LIST, netOf } from '#lib/chain.ts';
 	import { homePath, newDiaryPath } from '#lib/paths.ts';
 
 	let net = $derived(netOf(page.params.network));
 
-	// The same page on the other network, where there is one. A diary is on one
+	// The same page on another network, where there is one. A diary is on one
 	// network only, so from a diary the way across leads to the shelf.
 	let opening = $derived(page.route.id?.endsWith('/new') ?? false);
 </script>
 
 <!--
-	Which network the page is on, and the way to the other. It is always in
-	sight: nobody should have to wonder whether what they are writing is kept.
+	Which network the page is on, and the way to the others. It is always in
+	sight: nobody should have to wonder where what they are writing is kept, or
+	for how long.
 -->
 <nav aria-label="Network">
-	{#each [NETS.mainnet, NETS.testnet] as each (each.id)}
+	{#each NET_LIST as each (each.id)}
 		<a
 			href={opening ? newDiaryPath(each) : homePath(each)}
 			class:practice={each.practice}
 			aria-current={each === net ? 'true' : undefined}
-			title={each.practice
-				? `${each.chain.name}: the practice book. Free, and not kept for good.`
-				: `${each.chain.name}: kept for good.`}
+			title="{each.chain.name}. {each.about}"
 		>
-			{each.label}
+			<span class="long">{each.label}</span>
+			<span class="short">{each.short}</span>
 		</a>
 	{/each}
 </nav>
@@ -40,7 +40,7 @@
 	}
 
 	a {
-		padding: 5px 12px;
+		padding: 5px 11px;
 		border-radius: 999px;
 		color: var(--fg-subtle);
 		font-size: 12px;
@@ -55,6 +55,25 @@
 
 	a:hover {
 		color: var(--fg);
+	}
+
+	.short {
+		display: none;
+	}
+
+	/* Three names, a seal, a wallet and a phone: the names are the part that can give. */
+	@media (max-width: 480px) {
+		a {
+			padding: 5px 9px;
+		}
+
+		.long {
+			display: none;
+		}
+
+		.short {
+			display: inline;
+		}
 	}
 
 	a[aria-current] {

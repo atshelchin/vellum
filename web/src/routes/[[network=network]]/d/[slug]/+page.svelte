@@ -421,9 +421,12 @@
 			<p class="toast" role="status">
 				<Seal size={22} />
 				<span>
-					Sealed on {net.chain.name}. {net.practice
-						? 'On Ethereum it works just the same.'
-						: 'It is there for good.'}
+					Sealed on {net.chain.name}.
+					{#if net.practice}
+						Where a page is kept, it works just the same.
+					{:else if net.keeping === 'for good'}
+						It is there for good.
+					{/if}
 				</span>
 			</p>
 		{/if}

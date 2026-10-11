@@ -28,7 +28,7 @@ function netWith(id: Net['id'], answer: (call: Call) => unknown) {
 
 describe('the dates of a diary', () => {
 	it('are read on their own where the contract can give them', async () => {
-		const { net, calls } = netWith('mainnet', (call) => {
+		const { net, calls } = netWith('ethereum', (call) => {
 			expect(call.functionName).toBe('getEntryTimes');
 			return [[10, 20, 30], 3n];
 		});
@@ -39,7 +39,7 @@ describe('the dates of a diary', () => {
 
 	it('are read a page at a time when there are more than a page of them', async () => {
 		const all = Array.from({ length: 4500 }, (_, index) => 1_000 + index);
-		const { net, calls } = netWith('mainnet', (call) => {
+		const { net, calls } = netWith('ethereum', (call) => {
 			const [, offset, limit] = call.args.map(Number);
 			return [all.slice(offset, offset + limit), BigInt(all.length)];
 		});
@@ -48,12 +48,12 @@ describe('the dates of a diary', () => {
 	});
 
 	it('are nothing for a diary with nothing in it', async () => {
-		const { net } = netWith('mainnet', () => [[], 0n]);
+		const { net } = netWith('ethereum', () => [[], 0n]);
 		expect(await fetchEntryTimes(net, 0)).toEqual([]);
 	});
 
 	it('are not made up when the chain does not answer', async () => {
-		const { net, calls } = netWith('mainnet', () => {
+		const { net, calls } = netWith('ethereum', () => {
 			throw new HttpRequestError({ url: 'https://node.invalid', status: 503 });
 		});
 		await expect(fetchEntryTimes(net, 0)).rejects.toThrow();
@@ -61,7 +61,7 @@ describe('the dates of a diary', () => {
 	});
 
 	it('are not read at all for a diary the contract says is not there', async () => {
-		const { net, calls } = netWith('mainnet', (call) => {
+		const { net, calls } = netWith('ethereum', (call) => {
 			throw new ContractFunctionExecutionError(
 				new ContractFunctionRevertedError({
 					abi: vellumAbi,

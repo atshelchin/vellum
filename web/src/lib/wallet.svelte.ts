@@ -56,7 +56,7 @@ class Wallet {
 	canWrite = $derived(this.standing === 'vela' || this.standing === 'new-vela');
 
 	/** The network of the page being shown: where the balance and the standing are read. */
-	#net: Net = NETS.mainnet;
+	#net: Net = NETS.ethereum;
 
 	/** Told which network the page is on. The same account is looked at again there. */
 	use(net: Net) {

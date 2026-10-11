@@ -10,7 +10,7 @@
 	import { page } from '$app/state';
 	import favicon from '#lib/assets/favicon.svg';
 	import { BRAND, MAKER_ON_X } from '#lib/brand.ts';
-	import { NETS, netOf } from '#lib/chain.ts';
+	import { NETS, netOf, type Net } from '#lib/chain.ts';
 	import ConnectModal from '#lib/components/ConnectModal.svelte';
 	import Header from '#lib/components/Header.svelte';
 	import { wallet } from '#lib/wallet.svelte.ts';
@@ -26,21 +26,23 @@
 
 	// What a link to this page shows when it is shared. A page that knows
 	// better — a diary — returns its own from `load`.
-	let card = $derived(
-		page.data.card ??
-			(net.practice
-				? {
-						title: `${BRAND} — the practice book`,
-						description: `Try ${BRAND}, the diary kept on Ethereum, on ${net.chain.name} first: turn its pages, write one, and it costs nothing. For Vela Wallet.`,
-						image: '/card.png'
-					}
-				: {
-						title: `${BRAND} — a diary kept on Ethereum`,
-						description:
-							'A diary you turn page by page, written on Ethereum and kept there for good. For Vela Wallet.',
-						image: '/card.png'
-					})
-	);
+	const ABOUT: Record<Net['id'], { title: string; description: string }> = {
+		ethereum: {
+			title: `${BRAND} — a diary kept on Ethereum`,
+			description:
+				'A diary you turn page by page, written on Ethereum and kept there for good. For Vela Wallet.'
+		},
+		arc: {
+			title: `${BRAND} — a diary for every day, on Arc`,
+			description:
+				'A diary you turn page by page, written on Arc, where a page costs a fraction of a cent. For Vela Wallet.'
+		},
+		testnet: {
+			title: `${BRAND} — the practice book`,
+			description: `Try ${BRAND}, the diary kept on chain, on Arc Testnet first: turn its pages, write one, and it costs nothing. For Vela Wallet.`
+		}
+	};
+	let card = $derived(page.data.card ?? { ...ABOUT[net.id], image: '/card.png' });
 
 	onMount(async () => {
 		// In development, `?mock=<account>` puts a pretend Vela Wallet in the page,

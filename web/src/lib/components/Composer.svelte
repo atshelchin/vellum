@@ -347,9 +347,7 @@
 				waiting={`Confirm in Vela, then give ${net.chain.name} ${net.wait}. Keep this page open.`}
 				sent={`Confirmed in your wallet. Reading it back from ${net.chain.name}…`}
 				sealed={sealed ? `Entry ${sealed.index + 1} · ${dateParts(sealed.writtenAt).day}` : ''}
-				kept={net.practice
-					? `Kept on ${net.chain.name}, for practice.`
-					: `Kept on ${net.chain.name}, for good.`}
+				kept={`Kept on ${net.chain.name}, ${net.keeping}.`}
 				onstruck={() => (struck = true)}
 				ondone={putAway}
 			/>

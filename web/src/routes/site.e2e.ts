@@ -67,9 +67,32 @@ test('a number alone, or a guess, opens no diary', async ({ page }) => {
 	}
 });
 
-test('there is no page that is not on one of the two networks', async ({ page }) => {
+test('there is no page that is not on one of the three networks', async ({ page }) => {
 	expect((await page.goto('/mainnet'))?.status()).toBe(404);
+	expect((await page.goto('/ethereum'))?.status()).toBe(404);
 	expect((await page.goto('/sepolia/new'))?.status()).toBe(404);
+});
+
+test('Arc has pages of its own, and says what it is for', async ({ page }) => {
+	await page.goto('/arc');
+	await expect(page.getByRole('heading', { level: 1 })).toHaveText('A diary for every day.');
+	// As they are shown: each also carries a short name, for a phone, that is not.
+	await expect(networks(page).getByRole('link')).toHaveText(['Ethereum', 'Arc', 'Testnet'], {
+		useInnerText: true
+	});
+	await expect(networks(page).getByRole('link', { name: 'Arc', exact: true })).toHaveAttribute(
+		'aria-current',
+		'true'
+	);
+	// Only Ethereum is said to keep a page for good.
+	await expect(page.getByText('outlives its writer')).toHaveCount(0);
+
+	// The same page across, as from anywhere else.
+	await page.goto('/arc/new');
+	await networks(page).getByRole('link', { name: 'Testnet' }).click();
+	await expect(page).toHaveURL(/\/testnet\/new$/);
+	await networks(page).getByRole('link', { name: 'Arc', exact: true }).click();
+	await expect(page).toHaveURL(/\/arc\/new$/);
 });
 
 test('a link to the site unfolds into its card', async ({ page, request }) => {
