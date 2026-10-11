@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { page } from '$app/state';
+	import { backdrop } from '#lib/backdrop.ts';
 	import type { Net } from '#lib/chain.ts';
 	import { dateParts } from '#lib/format.ts';
 	import { diaryPath } from '#lib/paths.ts';
@@ -95,7 +96,7 @@
 <dialog
 	bind:this={dialog}
 	onclose={() => (open = false)}
-	onclick={(event) => event.target === dialog && dialog.close()}
+	use:backdrop={() => dialog.close()}
 	aria-labelledby="share-title"
 >
 	<div class="sheet">

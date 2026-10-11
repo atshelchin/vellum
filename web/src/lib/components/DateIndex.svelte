@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { tick, untrack } from 'svelte';
+	import { backdrop } from '#lib/backdrop.ts';
 	import {
 		dayKey,
 		dayOf,
@@ -168,7 +169,7 @@
 <dialog
 	bind:this={dialog}
 	onclose={() => (open = false)}
-	onclick={(event) => event.target === dialog && dialog.close()}
+	use:backdrop={() => dialog.close()}
 	{onkeydown}
 	aria-labelledby="index-year"
 >

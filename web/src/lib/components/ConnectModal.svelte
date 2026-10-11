@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { backdrop } from '#lib/backdrop.ts';
 	import { BRAND, VELA } from '#lib/brand.ts';
 	import { page } from '$app/state';
 	import { netOf } from '#lib/chain.ts';
@@ -27,7 +28,7 @@
 <dialog
 	bind:this={dialog}
 	onclose={() => (wallet.pickerOpen = false)}
-	onclick={(event) => event.target === dialog && dialog.close()}
+	use:backdrop={() => dialog.close()}
 	aria-labelledby="connect-title"
 >
 	<!-- Focus lands on the sheet, not on its close button, so opening it draws no focus ring. -->

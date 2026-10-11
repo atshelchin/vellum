@@ -14,6 +14,7 @@
 		type Diary,
 		type Entry
 	} from '#lib/vellum.ts';
+	import { backdrop } from '#lib/backdrop.ts';
 	import { facesFor } from '#lib/typefaces.ts';
 	import { wallet } from '#lib/wallet.svelte.ts';
 	import ExternalLink from './ExternalLink.svelte';
@@ -241,7 +242,7 @@
 	class:leaving
 	onclose={() => (open = false)}
 	oncancel={(event) => busy && event.preventDefault()}
-	onclick={(event) => event.target === dialog && dismiss()}
+	use:backdrop={dismiss}
 	aria-labelledby="compose-title"
 >
 	<form onsubmit={submit} class:sealing={phase !== null} class:struck>
