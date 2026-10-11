@@ -96,6 +96,10 @@ const SINGLE_TILT = 76;
 const TURN_SECONDS = 0.92;
 const RIFFLE_SECONDS = 0.6;
 const OPEN_SECONDS = 1.9;
+/** How long a page takes to be brought up to the reader. */
+const APPROACH_SECONDS = 0.85;
+/** How far through coming up a page is when it counts as arrived: the rest is its settling. */
+const ARRIVING = 0.78;
 const PAGE_CACHE = 14;
 
 const clamp01 = (value: number) => Math.min(1, Math.max(0, value));
@@ -214,6 +218,16 @@ export class BookStage {
 	/** 0 shut, 1 lying open, and where it is heading. */
 	#openness: number;
 	#opening: { from: number; to: number; elapsed: number; done: () => void } | null = null;
+	/**
+	 * How near the page has been brought: 0 with the book lying on its desk, 1
+	 * with one page of it face on and filling the room it was given.
+	 */
+	#nearness = 0;
+	#approaching: { elapsed: number; done: (() => void) | null } | null = null;
+	/** The parts of the canvas a page that has been brought near is not to be drawn over. */
+	#near = { top: 0, bottom: 0 };
+	/** A page brought near is to cover the screen, and not only to fit inside it. */
+	#covering = false;
 	#leftThickness = 0;
 	#rightThickness = 0;
 	/** What the camera frames, in the book's space, and what it is moving toward. */
@@ -474,6 +488,32 @@ export class BookStage {
 	}
 
 	/**
+	 * Brings the page that is to be read up to the reader: square to them, and
+	 * as large as the screen will have it, less `room` at the top and bottom.
+	 * With `cover` it is brought nearer still, until there is nothing on the
+	 * screen but its paper: that is for where it is read on a sheet that is the
+	 * whole screen. It is the last thing the book does before it gives way to
+	 * whatever the diary is read in: the page comes up, and what it is read in
+	 * takes its place where it stands. Resolves as the page arrives, a moment
+	 * before it has stopped, so that the one can come in over the other in a
+	 * single movement.
+	 */
+	approach(room = { top: 0, bottom: 0 }, cover = false): Promise<void> {
+		this.#approaching?.done?.();
+		this.#near = room;
+		this.#covering = cover;
+		if (this.#calm) {
+			this.#nearness = 1;
+			this.#invalidate();
+			return Promise.resolve();
+		}
+		return new Promise((done) => {
+			this.#approaching = { elapsed: 0, done };
+			this.#invalidate();
+		});
+	}
+
+	/**
 	 * Goes one step the way a reader would: the next page, which on a narrow
 	 * screen is sometimes the other half of the same spread. Returns whether
 	 * there was anywhere to go.
@@ -524,6 +564,7 @@ export class BookStage {
 		cancelAnimationFrame(this.#raf);
 		cancelIdle(this.#idle);
 		this.#opening?.done();
+		this.#approaching?.done?.();
 		this.#resizeObserver.disconnect();
 		this.#intersectionObserver.disconnect();
 		document.removeEventListener('visibilitychange', this.#onVisibility);
@@ -1058,6 +1099,22 @@ export class BookStage {
 		});
 	}
 
+	#advanceApproach(delta: number): boolean {
+		const approaching = this.#approaching;
+		if (!approaching) return false;
+		approaching.elapsed += delta;
+		const t = clamp01(approaching.elapsed / APPROACH_SECONDS);
+		this.#nearness = easeInOut(t);
+		// All but there: whatever takes its place is let in now, while it settles.
+		if (t >= ARRIVING && approaching.done) {
+			approaching.done();
+			approaching.done = null;
+		}
+		if (t < 1) return true;
+		this.#approaching = null;
+		return false;
+	}
+
 	#advanceOpening(delta: number): boolean {
 		const opening = this.#opening;
 		if (!opening) return false;
@@ -1147,7 +1204,10 @@ export class BookStage {
 			'YXZ'
 		);
 		this.#book.quaternion.setFromEuler(euler);
-		euler.set(THREE.MathUtils.degToRad(this.#single ? SINGLE_TILT : SPREAD_TILT), 0, 0);
+		// Lying back on its desk; or, brought up to the reader, standing square to them.
+		const near = this.#nearness;
+		const lyingBack = this.#single ? SINGLE_TILT : SPREAD_TILT;
+		euler.set(THREE.MathUtils.degToRad(lyingBack + (90 - lyingBack) * near), 0, 0);
 		this.#book.quaternion.slerp(quaternion.setFromEuler(euler), pose);
 
 		// What has to be in view: the shut book whole, or the spread, or one page of it.
@@ -1164,15 +1224,30 @@ export class BookStage {
 					halfHeight: HEIGHT / 2 + 0.03
 				}
 			: { x: 0, halfWidth: WIDTH + SQUARE + spine / 2 + 0.03, halfHeight: BOARD_HEIGHT / 2 + 0.03 };
+		// Brought near, it is one page and nothing else: the one being read.
+		const side = this.#single && this.#focus === 'left' ? -1 : 1;
+		const page = {
+			x: gutter + side * (WIDTH / 2 + 0.004),
+			halfWidth: WIDTH / 2,
+			halfHeight: HEIGHT / 2
+		};
 		const wanted = {
 			x: shut.x + (lying.x - shut.x) * pose,
 			halfWidth: shut.halfWidth + (lying.halfWidth - shut.halfWidth) * pose,
 			halfHeight: shut.halfHeight + (lying.halfHeight - shut.halfHeight) * pose
 		};
+		wanted.x += (page.x - wanted.x) * near;
+		wanted.halfWidth += (page.halfWidth - wanted.halfWidth) * near;
+		wanted.halfHeight += (page.halfHeight - wanted.halfHeight) * near;
 		const frame = this.#frame;
 		const insets = this.#margins;
-		const edges = this.#options.insets ?? { top: 0, bottom: 0 };
-		const ease = this.#framed ? 1 - Math.exp(-delta * 6.5) : 1;
+		const resting = this.#options.insets ?? { top: 0, bottom: 0 };
+		const edges = {
+			top: resting.top + (this.#near.top - resting.top) * near,
+			bottom: resting.bottom + (this.#near.bottom - resting.bottom) * near
+		};
+		// Being brought near is a movement with its own pace: the frame keeps to it exactly.
+		const ease = this.#framed && near === 0 ? 1 - Math.exp(-delta * 6.5) : 1;
 		this.#framed = true;
 		frame.x += (wanted.x - frame.x) * ease;
 		frame.halfWidth += (wanted.halfWidth - frame.halfWidth) * ease;
@@ -1187,27 +1262,34 @@ export class BookStage {
 		// screen nothing else is drawn over.
 		const slope = Math.tan(THREE.MathUtils.degToRad(FOV / 2));
 		const shift = wide ? (this.#options.shift ?? 0) * (1 - pose) : 0;
-		const roomX = (1 - Math.abs(shift)) * 0.94;
+		// A page brought near has the whole width of the screen, if it needs it.
+		const roomX = (1 - Math.abs(shift)) * (0.94 + 0.06 * near);
 		const roomY =
 			Math.max(0.2, (height - insets.top - insets.bottom) / height) * (1 - 0.06 * (1 - pose));
 		const lift = openness < 1 ? spine * (1 - pose) * 0.5 : 0;
 		const centre = this.#scratch.centre
 			.set(frame.x, lift, 0)
 			.applyQuaternion(this.#book.quaternion);
-		let distance = 0;
+		let across = 0;
+		let upright = 0;
 		for (const sx of [-1, 1]) {
 			for (const sz of [-1, 1]) {
 				corner
 					.set(frame.x + sx * frame.halfWidth, lift, sz * frame.halfHeight)
 					.applyQuaternion(this.#book.quaternion)
 					.sub(centre);
-				distance = Math.max(
-					distance,
-					Math.abs(corner.x) / (slope * this.#camera.aspect * roomX) + corner.z,
-					Math.abs(corner.y) / (slope * roomY) + corner.z
+				across = Math.max(
+					across,
+					Math.abs(corner.x) / (slope * this.#camera.aspect * roomX) + corner.z
 				);
+				upright = Math.max(upright, Math.abs(corner.y) / (slope * roomY) + corner.z);
 			}
 		}
+		// Back far enough to see the whole of it. A page that is to cover the
+		// screen is come up to closer: only as far back as leaves nothing else
+		// in sight.
+		const whole = Math.max(across, upright);
+		const distance = this.#covering ? whole + (Math.min(across, upright) - whole) * near : whole;
 
 		// The pointer leans the view a little, as a head does over a book.
 		const follow = 1 - Math.exp(-delta * 5);
@@ -1215,7 +1297,7 @@ export class BookStage {
 		this.#sway.x += (this.#pointer.x - this.#sway.x) * follow;
 		this.#sway.y += (this.#pointer.y - this.#sway.y) * follow;
 		const swaying = Math.abs(this.#sway.x + this.#sway.y - swayBefore) > 0.0004;
-		const lean = this.#calm || this.#single ? 0 : 0.05 * pose;
+		const lean = this.#calm || this.#single ? 0 : 0.05 * pose * (1 - near);
 
 		const down = ((insets.bottom - insets.top) / height) * distance * slope;
 		const aside = -shift * distance * slope * this.#camera.aspect;
@@ -1259,6 +1341,7 @@ export class BookStage {
 		this.#clock += delta;
 
 		let moving = this.#advanceOpening(delta);
+		moving = this.#advanceApproach(delta) || moving;
 		moving = this.#advanceFlights(delta) || moving;
 		moving = this.#advanceStacks(delta) || moving;
 		this.#shape();

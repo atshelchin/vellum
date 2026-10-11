@@ -73,6 +73,69 @@ where the diary is being read (`src/lib/book/calendar.ts`).
 It is drawn from `getEntryTimes`, which reads no text: a year of entries is
 one small call (`fetchEntryTimes` in `src/lib/vellum.ts`).
 
+## Opened as a book, read as leaves
+
+The book is what a diary looks like and how it is opened: its leather, its
+title in gold, the boards coming apart. But a book is read two pages at a
+time, turned by hand, and that is slower going than a thumb on a screen is
+used to. So once it is open a diary is read as leaves
+(`src/lib/components/Leaves.svelte`): one entry to a screen, one above
+another, on the same paper and in the same faces. A button in the bar gives
+the book back to whoever would rather turn pages, and the choice is
+remembered.
+
+What moves the leaves is the part to be careful with, because two things
+want to do it:
+
+- **Under a finger the browser does it.** A phone's own scrolling is better
+  than anything written here, and with scroll snapping it brings a leaf to
+  rest by itself.
+- **A wheel, a trackpad and a keyboard are moved from the script,** and
+  snapping is turned off while they are in use. Left to the browser, a wheel
+  moves a few lines and is pulled back, and a trackpad's coasting runs on
+  through three leaves. Mixing the two, each correcting the other, is what
+  makes a pager feel as if it has a mind of its own.
+
+The rules for the second, which `Leaves.svelte.spec.ts` holds it to:
+
+- One movement of a wheel brings up one leaf, however many notches it is
+  spun or however long a trackpad coasts. Another needs the wheel to have been
+  still, or the fingers to have come down again.
+- Inside an entry longer than the screen the wheel scrolls it, and stops at
+  its end. Only a movement that begins at the end turns the leaf: one that
+  arrives there on the way down stops, as a page does.
+- Going back up the diary, the entry before is come on at its end, so that
+  the reading is continuous in both directions. (Left, and the button that
+  goes back one, mean "that entry", and go to the head of it.)
+- Up and down move along a leaf a few lines at a time, Space and Page Down a
+  screen at a time, and both go on to the next leaf from the end of one; a key
+  held down stops at the end. Left and right go from leaf to leaf.
+- While a leaf is being brought up nothing else is listened to.
+
+Only the leaves near the reader have their words on them. The rest keep the
+height they turned out to have, so that the page does not jump as they come
+and go.
+
+The book hands over to the leaves in one movement (`BookStage.approach`): the
+page that is to be read is brought up square to the reader, and the leaf
+comes in over it as it arrives. On a wide screen it is brought up into the
+room a sheet has on the desk. On a phone, where the sheet is the whole
+screen, it is brought up until its paper is the whole screen too.
+
+Paper is the one place the rest of the site is not drawn for: everything else
+lies on the dark. So over the leaves:
+
+- **Nothing floats over a sheet that has the screen to itself** (1100px and
+  narrower). The header and the controls at the foot become two solid bars of
+  the room's own dark, which slide away together when the reader is left
+  alone and come back on a tap. The header is told through
+  `src/lib/immersion.svelte.ts`, since it is not the page's to restyle.
+- **Wider than that**, the controls stay where they float, and their glass is
+  made all but solid: glass that paper shows through goes the colour of mud.
+- **On a phone the sheet is lit evenly, edge to edge.** A gutter down one
+  side or a darkened corner reads there as a patch where the light is
+  missing, not as a book.
+
 ## The faces
 
 A diary is read at length, like a novel, so it is set the way one is: in faces
@@ -127,23 +190,24 @@ and in the two places that import its files (`typefaces.ts` and
 
 ## What is where
 
-| Path                              | What it is                                                                      |
-| --------------------------------- | ------------------------------------------------------------------------------- |
-| `src/lib/chain.ts`                | The three networks: chain, nodes, the contract's address, what each is for      |
-| `src/lib/wallet.svelte.ts`        | Wallet discovery (EIP-6963, then `window.ethereum`) and the connection          |
-| `src/lib/vellum.ts`               | Reads from the contract, and the two things an account can do                   |
-| `src/lib/slug.ts`                 | What a link to a diary, or to one page of it, is made of                        |
-| `src/lib/identicon.ts`            | An account's face, as Vela Wallet draws it                                      |
-| `src/lib/scripts.ts`              | Which typeface writes which writing: the one list of them                       |
-| `src/lib/server/card/`            | The picture a shared link unfolds into, and the faces it is set in              |
-| `src/lib/book/calendar.ts`        | A diary by its dates: which days have writing on them                           |
-| `src/lib/book/Stage.ts`           | The book, in three.js: boards, stacks of pages, leaves that turn                |
-| `src/lib/book/curve.ts`           | The shape of a page lying still and of one being turned                         |
-| `src/lib/book/layout.ts`          | Where an entry's lines break and where its pages do, for the size of the screen |
-| `src/lib/book/faces.ts`           | A diary as a run of spreads                                                     |
-| `src/lib/book/paint.ts`           | Everything drawn and not modelled: pages, writing, leather, gold                |
-| `src/lib/book/reader.svelte.ts`   | Someone reading: where they are, and the entries read so far                    |
-| `src/routes/[[network=network]]/` | The pages: the front page and shelf, `new`, `d/[slug]`                          |
+| Path                               | What it is                                                                      |
+| ---------------------------------- | ------------------------------------------------------------------------------- |
+| `src/lib/chain.ts`                 | The three networks: chain, nodes, the contract's address, what each is for      |
+| `src/lib/wallet.svelte.ts`         | Wallet discovery (EIP-6963, then `window.ethereum`) and the connection          |
+| `src/lib/vellum.ts`                | Reads from the contract, and the two things an account can do                   |
+| `src/lib/slug.ts`                  | What a link to a diary, or to one page of it, is made of                        |
+| `src/lib/identicon.ts`             | An account's face, as Vela Wallet draws it                                      |
+| `src/lib/scripts.ts`               | Which typeface writes which writing: the one list of them                       |
+| `src/lib/server/card/`             | The picture a shared link unfolds into, and the faces it is set in              |
+| `src/lib/book/calendar.ts`         | A diary by its dates: which days have writing on them                           |
+| `src/lib/book/Stage.ts`            | The book, in three.js: boards, stacks of pages, leaves that turn                |
+| `src/lib/book/curve.ts`            | The shape of a page lying still and of one being turned                         |
+| `src/lib/book/layout.ts`           | Where an entry's lines break and where its pages do, for the size of the screen |
+| `src/lib/book/faces.ts`            | A diary as a run of spreads                                                     |
+| `src/lib/book/paint.ts`            | Everything drawn and not modelled: pages, writing, leather, gold                |
+| `src/lib/book/reader.svelte.ts`    | Someone reading: where they are, and the entries read so far                    |
+| `src/lib/components/Leaves.svelte` | The diary as it is read: a leaf to an entry, scrolled                           |
+| `src/routes/[[network=network]]/`  | The pages: the front page and shelf, `new`, `d/[slug]`                          |
 
 ## Things that are easy to get wrong
 

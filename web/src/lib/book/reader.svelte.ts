@@ -171,6 +171,26 @@ export class Reader implements Source {
 		if (this.atEnd) this.#stage?.show(this.spread);
 	}
 
+	/**
+	 * Asks for an entry to be read from the chain, if it has not been: for a
+	 * view that shows more of the diary than the one place the reader is at.
+	 */
+	want(entry: number): Promise<void> {
+		return this.#read(entry);
+	}
+
+	/**
+	 * Says where the reader has got to, when it was not the book that took them
+	 * there: a view that is scrolled moves by itself and reports where it is.
+	 */
+	settle(entry: number) {
+		const target = Math.max(-1, Math.min(entry, this.diary.entries));
+		if (target === this.place.entry) return;
+		this.place = { entry: target, spread: 0 };
+		this.#stage?.show(this.spread);
+		void this.#around(target);
+	}
+
 	/** Leafs through to an entry, or to the title pages (-1), or to the last page. */
 	async goTo(entry: number) {
 		const target = Math.max(-1, Math.min(entry, this.diary.entries));
