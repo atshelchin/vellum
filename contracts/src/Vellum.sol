@@ -14,6 +14,10 @@ import {VelaWallet} from "./VelaWallet.sol";
 /// shows an account its own diaries and nobody else's, but that is the site's
 /// manners, not a secret the chain keeps. Anyone can read every diary here.
 ///
+/// A diary can be signed with a pen name, given when it is opened. It is a
+/// name and not an identity: nothing stops two diaries from carrying the same
+/// one, so whatever shows it should show the account beside it.
+///
 /// An entry's text is kept as the code of a small contract of its own, not in
 /// storage. Code costs 200 gas a byte to keep; storage costs 22,100 a word,
 /// which is more than three times that. Over a page of writing, that is the
@@ -26,6 +30,8 @@ contract Vellum {
         uint48 createdAt;
         uint8 cover;
         string title;
+        /// What its keeper signs it with. Empty if they sign with their account alone.
+        string penName;
     }
 
     /// One slot: where the text is, and when it was written.
@@ -44,6 +50,7 @@ contract Vellum {
         uint8 cover;
         uint256 entries;
         string title;
+        string penName;
     }
 
     struct EntryView {
@@ -58,6 +65,7 @@ contract Vellum {
     /// What an entry costs, in the chain's own coin.
     uint256 public constant FEE = 0.001 ether;
     uint256 public constant MAX_TITLE_LENGTH = 64;
+    uint256 public constant MAX_PEN_NAME_LENGTH = 32;
     /// A contract's code may be 24,576 bytes, and an entry's begins with one byte that is not text.
     uint256 public constant MAX_ENTRY_LENGTH = 24_575;
 
@@ -68,7 +76,7 @@ contract Vellum {
     mapping(uint256 id => Entry[]) private _entries;
     mapping(address owner => uint256[]) private _owned;
 
-    event DiaryCreated(uint256 indexed id, address indexed owner, string title, uint8 cover);
+    event DiaryCreated(uint256 indexed id, address indexed owner, string title, string penName, uint8 cover);
     event EntryWritten(uint256 indexed id, uint256 indexed index, address indexed owner);
     event Withdrawn(uint256 amount);
 
@@ -78,6 +86,7 @@ contract Vellum {
     error NoSuchEntry();
     error NotOwner();
     error BadTitle();
+    error BadPenName();
     error BadEntry();
     error WrongFee();
     error StoreFailed();
@@ -89,16 +98,20 @@ contract Vellum {
     }
 
     /// @notice Opens a diary for the caller, which must be a Vela account.
+    /// @param penName What the diary is signed with, or nothing. Like its title, it is never changed.
     /// @param cover Which binding the diary wears. The site knows what each number looks like.
-    function create(string calldata title, uint8 cover) external returns (uint256 id) {
+    function create(string calldata title, string calldata penName, uint8 cover) external returns (uint256 id) {
         if (!isVelaWallet(msg.sender)) revert NotVelaWallet();
         uint256 length = bytes(title).length;
         if (length == 0 || length > MAX_TITLE_LENGTH) revert BadTitle();
+        if (bytes(penName).length > MAX_PEN_NAME_LENGTH) revert BadPenName();
 
         id = _diaries.length;
-        _diaries.push(Diary({owner: msg.sender, createdAt: uint48(block.timestamp), cover: cover, title: title}));
+        _diaries.push(
+            Diary({owner: msg.sender, createdAt: uint48(block.timestamp), cover: cover, title: title, penName: penName})
+        );
         _owned[msg.sender].push(id);
-        emit DiaryCreated(id, msg.sender, title, cover);
+        emit DiaryCreated(id, msg.sender, title, penName, cover);
     }
 
     /// @notice Writes an entry in one of the caller's diaries, for `FEE`.
@@ -196,6 +209,25 @@ contract Vellum {
         }
     }
 
+    /// @notice When each of a page of a diary's entries was written, in writing order: `page[i]` is entry `offset + i`.
+    ///
+    /// What a calendar of a diary is drawn from. It reads no text, so a year of
+    /// entries is one small call.
+    function getEntryTimes(uint256 id, uint256 offset, uint256 limit)
+        external
+        view
+        returns (uint48[] memory page, uint256 total)
+    {
+        _diary(id);
+        Entry[] storage entries = _entries[id];
+        total = entries.length;
+        uint256 size = _pageSize(total, offset, limit);
+        page = new uint48[](size);
+        for (uint256 i = 0; i < size; i++) {
+            page[i] = entries[offset + i].writtenAt;
+        }
+    }
+
     function _diary(uint256 id) private view returns (Diary storage) {
         if (id >= _diaries.length) revert NoSuchDiary();
         return _diaries[id];
@@ -212,7 +244,8 @@ contract Vellum {
             lastWrittenAt: count == 0 ? 0 : entries[count - 1].writtenAt,
             cover: diary.cover,
             entries: count,
-            title: diary.title
+            title: diary.title,
+            penName: diary.penName
         });
     }
 

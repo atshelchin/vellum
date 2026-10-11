@@ -132,10 +132,11 @@ contract VellumForkTest is Test {
 
         vm.prank(stranger);
         vm.expectRevert(Vellum.NotVelaWallet.selector);
-        vellum.create("Not for me", 0);
+        vellum.create("Not for me", "", 0);
 
         vm.prank(writer);
-        uint256 id = vellum.create("Field notes", 2);
+        uint256 id = vellum.create("Field notes", "Tallis", 2);
+        assertEq(vellum.getDiary(id).penName, "Tallis");
 
         vm.prank(stranger);
         vm.expectRevert(Vellum.NotOwner.selector);
@@ -150,7 +151,7 @@ contract VellumForkTest is Test {
         assertEq(vellum.getEntry(id, 0).text, "Dear diary.");
 
         vm.prank(another);
-        assertEq(vellum.create("Three keys", 5), id + 1);
+        assertEq(vellum.create("Three keys", "", 5), id + 1);
 
         vellum.withdraw();
         assertEq(treasury.balance, held + 0.001 ether);
@@ -163,7 +164,7 @@ contract VellumForkTest is Test {
             address writer = _found(_keys(count, 2000 + count));
             vm.prank(writer);
             uint256 before = gasleft();
-            vellum.create("Field notes", 0);
+            vellum.create("Field notes", "", 0);
             emit log_named_uint(string.concat("gas to open a diary, ", vm.toString(count), " keys"), before - gasleft());
         }
     }

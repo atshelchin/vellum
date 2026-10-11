@@ -5,7 +5,7 @@
       "deployments": [
         {
           "chainId": 5042002,
-          "address": "0xB19C2F9c703116B4E680953006fc01180AD1ab68"
+          "address": "0x9fE4b54FB1ffF75dB2600788696df8ABa0Fbc013"
         }
       ]
     }
@@ -19,7 +19,7 @@
   },
   "display": {
     "formats": {
-      "create(string title, uint8 cover)": {
+      "create(string title, string penName, uint8 cover)": {
         "intent": "Open a diary",
         "fields": [
           {
@@ -27,6 +27,12 @@
             "format": "raw",
             "path": "#.title",
             "visible": "always"
+          },
+          {
+            "label": "Pen name",
+            "format": "raw",
+            "path": "#.penName",
+            "visible": "optional"
           },
           {
             "label": "Binding",

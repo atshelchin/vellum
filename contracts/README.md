@@ -25,10 +25,19 @@ Testnet, and the fork tests hold it to that on both.
   asks only whether the caller owns the diary. A diary can only have been
   opened by a Vela account, so the question is already answered, and not
   asking it again saves every entry the cost of the check.
+- **A diary can be signed.** `create(title, penName, cover)` takes a pen name
+  of up to 32 bytes, or none. It is kept with the diary and, like the title,
+  never changed. It is a name and not an identity: nothing stops two accounts
+  from signing with the same one, so whatever shows a pen name should show the
+  account beside it.
 - **Everything is read in pages.** `getDiariesOf(owner, offset, limit)` and
   `getDiaries(offset, limit)` go newest first; `getEntries(id, offset, limit)`
   goes in the order entries were written, which is the order a book is read
   in. Each returns the total alongside the page.
+- **A diary's dates can be read without its words.**
+  `getEntryTimes(id, offset, limit)` gives when each entry was written and
+  reads no text, which is what a calendar of a diary is drawn from. Measured
+  here, a year of daily entries is one call of about 305,000 gas.
 - **There is no owner and no upgrade.** The fees collect in the contract and
   `withdraw()`, which anyone may call, sends them to the `treasury` named when
   it was deployed. They cannot go anywhere else.
@@ -117,14 +126,20 @@ Whoever holds that domain is who the contract points people to.
 
 | Network     | Chain id | Vellum                                       |
 | ----------- | -------- | -------------------------------------------- |
-| Arc Testnet | 5042002  | `0xB19C2F9c703116B4E680953006fc01180AD1ab68` |
+| Arc Testnet | 5042002  | `0x9fE4b54FB1ffF75dB2600788696df8ABa0Fbc013` |
 | Ethereum    | 1        | not yet; it will have the same address       |
 
 Treasury: `0xEf33771897CadcA768DE0e267dE4c328EBA0f7De`. On Arc Testnet the
 source is published on the
-[explorer](https://explorer.testnet.arc.io/address/0xB19C2F9c703116B4E680953006fc01180AD1ab68), and
+[explorer](https://explorer.testnet.arc.io/address/0x9fE4b54FB1ffF75dB2600788696df8ABa0Fbc013), and
 it went out in transaction
-`0xcec4c79ba6994dd9b8eb2be0a6ab8b377bcfe25619f364129062481bffb12885`.
+`0xc95f4f7f758348bee08ee435f8a9c1fc78e31fd45bbaff97782126cf17755b3c`.
+
+Two earlier builds are still on Arc Testnet, as everything on a chain is:
+`0xB19C2F9c703116B4E680953006fc01180AD1ab68`, from before a diary's dates
+could be read on their own, and `0x9c496e2459667854Cf6D57dFeC5dC6AF119f4F17`,
+from before a diary could be signed with a pen name. The site reads neither:
+what was written in them was practice.
 
 ## Try it without a phone
 

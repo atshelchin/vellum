@@ -42,7 +42,7 @@ contract VellumTest is Test {
 
     function _create(address owner, string memory title) internal returns (uint256 id) {
         vm.prank(owner);
-        id = vellum.create(title, 3);
+        id = vellum.create(title, "", 3);
     }
 
     function _write(address owner, uint256 id, string memory text) internal returns (uint256 index) {
@@ -68,7 +68,7 @@ contract VellumTest is Test {
 
     function test_create_storesTheDiary() public {
         vm.expectEmit();
-        emit Vellum.DiaryCreated(0, writer, "Field notes", 3);
+        emit Vellum.DiaryCreated(0, writer, "Field notes", "", 3);
         uint256 id = _create(writer, "Field notes");
 
         Vellum.DiaryView memory diary = vellum.getDiary(id);
@@ -79,6 +79,7 @@ contract VellumTest is Test {
         assertEq(diary.cover, 3);
         assertEq(diary.entries, 0);
         assertEq(diary.title, "Field notes");
+        assertEq(diary.penName, "");
         assertEq(vellum.diaryCount(), 1);
         assertEq(vellum.diaryCountOf(writer), 1);
         assertEq(vellum.entryCount(id), 0);
@@ -88,26 +89,71 @@ contract VellumTest is Test {
         address stranger = makeAddr("stranger");
         vm.prank(stranger);
         vm.expectRevert(Vellum.NotVelaWallet.selector);
-        vellum.create("Mine", 0);
+        vellum.create("Mine", "", 0);
     }
 
     function test_create_isFree() public {
         vm.prank(writer);
-        (bool sent,) = address(vellum).call{value: 1}(abi.encodeCall(Vellum.create, ("Mine", 0)));
+        (bool sent,) = address(vellum).call{value: 1}(abi.encodeCall(Vellum.create, ("Mine", "", 0)));
         assertFalse(sent, "create took a payment");
     }
 
     function test_create_titleBounds() public {
         vm.prank(writer);
         vm.expectRevert(Vellum.BadTitle.selector);
-        vellum.create("", 0);
+        vellum.create("", "", 0);
 
         vm.prank(writer);
         vm.expectRevert(Vellum.BadTitle.selector);
-        vellum.create(_text(65, 1), 0);
+        vellum.create(_text(65, 1), "", 0);
 
         string memory longest = _text(64, 2);
         assertEq(vellum.getDiary(_create(writer, longest)).title, longest);
+    }
+
+    function test_create_signsTheDiaryWithItsPenName() public {
+        vm.expectEmit();
+        emit Vellum.DiaryCreated(0, writer, "Field notes", unicode"大表哥", 3);
+        vm.prank(writer);
+        uint256 id = vellum.create("Field notes", unicode"大表哥", 3);
+
+        assertEq(vellum.getDiary(id).penName, unicode"大表哥");
+        (Vellum.DiaryView[] memory mine,) = vellum.getDiariesOf(writer, 0, 10);
+        assertEq(mine[0].penName, unicode"大表哥");
+        (Vellum.DiaryView[] memory all,) = vellum.getDiaries(0, 10);
+        assertEq(all[0].penName, unicode"大表哥");
+    }
+
+    function test_create_penNameBounds() public {
+        vm.prank(writer);
+        vm.expectRevert(Vellum.BadPenName.selector);
+        vellum.create("Field notes", _text(33, 1), 0);
+
+        string memory longest = _text(32, 2);
+        vm.prank(writer);
+        assertEq(vellum.getDiary(vellum.create("Field notes", longest, 0)).penName, longest);
+    }
+
+    function test_create_aPenNameIsNotAnIdentity() public {
+        // Two accounts may sign with the same name. The account is what tells them apart.
+        vm.prank(writer);
+        uint256 first = vellum.create("Mine", "Anon", 0);
+        vm.prank(other);
+        uint256 second = vellum.create("Also mine", "Anon", 0);
+
+        assertEq(vellum.getDiary(first).penName, vellum.getDiary(second).penName);
+        assertEq(vellum.getDiary(first).owner, writer);
+        assertEq(vellum.getDiary(second).owner, other);
+    }
+
+    function test_create_eachDiaryHasItsOwnPenName() public {
+        vm.startPrank(writer);
+        uint256 first = vellum.create("By day", "Clerk", 0);
+        uint256 second = vellum.create("By night", "Owl", 0);
+        vm.stopPrank();
+
+        assertEq(vellum.getDiary(first).penName, "Clerk");
+        assertEq(vellum.getDiary(second).penName, "Owl");
     }
 
     function test_create_asManyAsOneLikes() public {
@@ -281,6 +327,48 @@ contract VellumTest is Test {
         assertEq(page.length, 5);
     }
 
+    function test_getEntryTimes_pagesInWritingOrder() public {
+        uint256 id = _create(writer, "Field notes");
+        uint256 start = block.timestamp;
+        for (uint256 i = 0; i < 7; i++) {
+            vm.warp(start + (i + 1) * 1 days);
+            _write(writer, id, vm.toString(i));
+        }
+
+        (uint48[] memory page, uint256 total) = vellum.getEntryTimes(id, 0, 100);
+        assertEq(total, 7);
+        assertEq(page.length, 7);
+        for (uint256 i = 0; i < 7; i++) {
+            assertEq(page[i], start + (i + 1) * 1 days);
+            assertEq(page[i], vellum.getEntry(id, i).writtenAt);
+        }
+
+        (page, total) = vellum.getEntryTimes(id, 5, 3);
+        assertEq(total, 7);
+        assertEq(page.length, 2);
+        assertEq(page[0], start + 6 days);
+
+        (page,) = vellum.getEntryTimes(id, 7, 3);
+        assertEq(page.length, 0);
+
+        vm.expectRevert(Vellum.NoSuchDiary.selector);
+        vellum.getEntryTimes(id + 1, 0, 3);
+    }
+
+    /// A calendar asks for a whole diary's dates at once: that has to stay cheap.
+    function test_gas_ofReadingAYearOfDates() public {
+        uint256 id = _create(writer, "Field notes");
+        for (uint256 i = 0; i < 365; i++) {
+            _write(writer, id, "a day");
+        }
+        uint256 before = gasleft();
+        (uint48[] memory page,) = vellum.getEntryTimes(id, 0, 365);
+        uint256 used = before - gasleft();
+        emit log_named_uint("gas to read 365 entries' dates", used);
+        assertEq(page.length, 365);
+        assertLt(used, 1_200_000);
+    }
+
     function test_getDiariesOf_pagesNewestFirst() public {
         _create(writer, "one");
         _create(other, "not hers");
@@ -344,7 +432,7 @@ contract VellumTest is Test {
         VellumHarness stuck = new VellumHarness(address(new RejectsPayment()));
         stuck.setVela(writer, true);
         vm.startPrank(writer);
-        uint256 id = stuck.create("Field notes", 0);
+        uint256 id = stuck.create("Field notes", "", 0);
         stuck.write{value: FEE}(id, "one");
         vm.stopPrank();
 
