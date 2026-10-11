@@ -2,6 +2,10 @@
 	"extends": "$app/tsconfig",
 	"compilerOptions": {
 		"strict": true,
+		// Everything written here is TypeScript. The only JavaScript the checker can
+		// reach is the built worker, which `wrangler types` points at once there is
+		// one, and a bundle is not ours to type-check.
+		"checkJs": false,
 		"types": ["$app/types", "node", "./worker-configuration.d.ts"]
 	},
 	"include": ["src", "vite.config.ts", "playwright.config.ts"]

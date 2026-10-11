@@ -23,3 +23,6 @@ vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 # Playwright
 test-results
+
+# Written by `wrangler types`, from wrangler.jsonc and whatever .env is here
+worker-configuration.d.ts

@@ -7,3 +7,6 @@ bun.lockb
 
 # Miscellaneous
 /static/
+
+# Written by `wrangler types`, and checked against what it would write
+worker-configuration.d.ts

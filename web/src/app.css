@@ -1,0 +1,211 @@
+:root {
+	--bg: #14100d;
+	--bg-raised: #201914;
+	--bg-sunken: #0e0b09;
+	--border: #33291f;
+	--border-strong: #4a3c2d;
+	--fg: #f2eadb;
+	--fg-muted: #b9ab95;
+	--fg-subtle: #8b7d69;
+	--gold: #d9b45a;
+	--gold-strong: #ecd08a;
+	--gold-ink: #1c1407;
+	--gold-soft: rgb(217 180 90 / 0.12);
+	--wax: #c8463a;
+	--paper: #f4ecd9;
+	--ink: #1b2540;
+	--success: #7fc79a;
+	--error: #f08a7c;
+
+	--serif: 'Cormorant Garamond Variable', 'Cormorant Garamond', Georgia, 'Times New Roman', serif;
+	--sans: 'Inter Variable', system-ui, -apple-system, 'Segoe UI', sans-serif;
+	--hand: 'Caveat Variable', 'Caveat', 'Segoe Print', cursive;
+	--mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+
+	--gutter: clamp(16px, 4vw, 40px);
+	--header: 64px;
+
+	color-scheme: dark;
+}
+
+*,
+*::before,
+*::after {
+	box-sizing: border-box;
+}
+
+html {
+	background: var(--bg);
+	-webkit-text-size-adjust: 100%;
+}
+
+body {
+	margin: 0;
+	min-height: 100svh;
+	/* A lamp, somewhere up and to the left of whatever is on the desk. */
+	background:
+		radial-gradient(70% 60% at 30% 18%, rgb(217 160 90 / 0.16), transparent 70%),
+		radial-gradient(60% 50% at 82% 88%, rgb(90 110 170 / 0.1), transparent 70%), var(--bg);
+	background-attachment: fixed;
+	color: var(--fg);
+	font-family: var(--sans);
+	font-size: 16px;
+	line-height: 1.5;
+	/* Cormorant's own figures are old-style, and its 1 is a small capital I: the 11th reads as "II". */
+	font-variant-numeric: lining-nums;
+	-webkit-font-smoothing: antialiased;
+	overflow-x: hidden;
+}
+
+h1,
+h2,
+h3,
+p,
+dl,
+dd,
+ul {
+	margin: 0;
+	padding: 0;
+}
+
+h1,
+h2,
+h3 {
+	font-family: var(--serif);
+	font-weight: 600;
+	letter-spacing: -0.01em;
+	line-height: 1.05;
+}
+
+ul {
+	list-style: none;
+}
+
+a {
+	color: inherit;
+}
+
+button,
+input,
+textarea {
+	font: inherit;
+	color: inherit;
+}
+
+:focus-visible {
+	outline: 2px solid var(--gold);
+	outline-offset: 2px;
+}
+
+.eyebrow {
+	font-size: 12px;
+	font-weight: 600;
+	letter-spacing: 0.16em;
+	text-transform: uppercase;
+	color: var(--gold);
+}
+
+.mono {
+	font-family: var(--mono);
+	font-feature-settings: 'zero';
+}
+
+.button {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 8px;
+	min-height: 48px;
+	padding: 0 22px;
+	border: 1px solid var(--border-strong);
+	border-radius: 999px;
+	background: rgb(255 240 215 / 0.05);
+	font-weight: 600;
+	text-decoration: none;
+	white-space: nowrap;
+	cursor: pointer;
+	transition:
+		background 0.15s,
+		border-color 0.15s,
+		transform 0.15s;
+}
+
+.button:hover:not(:disabled) {
+	background: rgb(255 240 215 / 0.1);
+	border-color: var(--fg-subtle);
+}
+
+.button:active:not(:disabled) {
+	transform: scale(0.98);
+}
+
+.button:disabled {
+	opacity: 0.55;
+	cursor: default;
+}
+
+/* Gold leaf, for the one thing a page most wants pressed. */
+.button.primary {
+	border-color: transparent;
+	background: linear-gradient(160deg, #f0d58c, #cfa446 55%, #b88a2e);
+	color: var(--gold-ink);
+	box-shadow:
+		0 8px 30px -10px rgb(217 180 90 / 0.6),
+		inset 0 1px 0 rgb(255 255 255 / 0.4);
+}
+
+.button.primary:hover:not(:disabled) {
+	background: linear-gradient(160deg, #f7e1a4, #dab257 55%, #c2953a);
+	border-color: transparent;
+}
+
+/* For a button that floats over the book, which may be paper or may be night. */
+.button.glass {
+	background: rgb(20 16 13 / 0.78);
+	backdrop-filter: blur(14px);
+}
+
+.button.glass:hover:not(:disabled) {
+	background: rgb(38 30 24 / 0.86);
+}
+
+.button.wide {
+	width: 100%;
+}
+
+.notice {
+	padding: 12px 14px;
+	border: 1px solid rgb(217 180 90 / 0.35);
+	border-radius: 12px;
+	background: var(--gold-soft);
+	font-size: 14px;
+	color: var(--fg);
+}
+
+.notice a {
+	color: var(--gold-strong);
+	font-weight: 600;
+}
+
+.error {
+	color: var(--error);
+	font-size: 14px;
+}
+
+.sr-only {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	overflow: hidden;
+	clip-path: inset(50%);
+	white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	*,
+	*::before,
+	*::after {
+		animation-duration: 0.01ms !important;
+		transition-duration: 0.01ms !important;
+	}
+}
