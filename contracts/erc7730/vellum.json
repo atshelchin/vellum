@@ -1,0 +1,68 @@
+{
+  "context": {
+    "$id": "Vellum",
+    "contract": {
+      "deployments": [
+        {
+          "chainId": 5042002,
+          "address": "0xB19C2F9c703116B4E680953006fc01180AD1ab68"
+        }
+      ]
+    }
+  },
+  "metadata": {
+    "owner": "Vellum",
+    "info": {
+      "url": "https://vellum.game3.app"
+    },
+    "contractName": "Vellum"
+  },
+  "display": {
+    "formats": {
+      "create(string title, uint8 cover)": {
+        "intent": "Open a diary",
+        "fields": [
+          {
+            "label": "Title",
+            "format": "raw",
+            "path": "#.title",
+            "visible": "always"
+          },
+          {
+            "label": "Binding",
+            "format": "raw",
+            "path": "#.cover",
+            "visible": "optional"
+          }
+        ]
+      },
+      "write(uint256 id, string text)": {
+        "intent": "Write a diary entry",
+        "fields": [
+          {
+            "label": "Fee",
+            "format": "amount",
+            "path": "@.value",
+            "visible": "always"
+          },
+          {
+            "label": "Diary",
+            "format": "raw",
+            "path": "#.id",
+            "visible": "always"
+          },
+          {
+            "label": "Entry",
+            "format": "raw",
+            "path": "#.text",
+            "visible": "always"
+          }
+        ]
+      },
+      "withdraw()": {
+        "intent": "Send the fees to the treasury",
+        "fields": []
+      }
+    }
+  }
+}
