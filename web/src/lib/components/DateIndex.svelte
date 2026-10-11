@@ -101,7 +101,12 @@
 		if (to === year) return;
 		chosen = true;
 		year = to;
-		void tick().then(() => bring());
+		void tick().then(() => {
+			bring();
+			// At the first year or the last, the way further is gone, and with it
+			// whatever was being pressed: the sheet takes over, so the keys still turn it.
+			if (!dialog.contains(document.activeElement)) sheet?.focus({ preventScroll: true });
+		});
 	}
 
 	function pick(written: Written) {
@@ -184,30 +189,42 @@
 				{/if}
 			</p>
 
+			<!--
+				The years on either side, by name, where there are any: a diary has a
+				sheet for every year from the one it was opened in to this one.
+			-->
 			<div class="year">
-				<button
-					type="button"
-					class="round"
-					onclick={() => turn(-1)}
-					disabled={year <= years[0]}
-					aria-label="The year before"
-				>
-					<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
-						<path d="M15 5l-7 7 7 7" />
-					</svg>
-				</button>
+				{#if year > years[0]}
+					<button
+						type="button"
+						class="to before"
+						onclick={() => turn(-1)}
+						aria-label="{year - 1}, the year before"
+					>
+						<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+							<path d="M15 5l-7 7 7 7" />
+						</svg>
+						{year - 1}
+					</button>
+				{:else}
+					<span class="to"></span>
+				{/if}
 				<h2 id="index-year">{year}</h2>
-				<button
-					type="button"
-					class="round"
-					onclick={() => turn(1)}
-					disabled={year >= years[years.length - 1]}
-					aria-label="The year after"
-				>
-					<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
-						<path d="M9 5l7 7-7 7" />
-					</svg>
-				</button>
+				{#if year < years[years.length - 1]}
+					<button
+						type="button"
+						class="to after"
+						onclick={() => turn(1)}
+						aria-label="{year + 1}, the year after"
+					>
+						{year + 1}
+						<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+							<path d="M9 5l7 7-7 7" />
+						</svg>
+					</button>
+				{:else}
+					<span class="to"></span>
+				{/if}
 			</div>
 
 			<button type="button" class="round close" onclick={() => dialog.close()} aria-label="Close">
@@ -344,7 +361,49 @@
 	.year {
 		display: flex;
 		align-items: center;
-		gap: 6px;
+		gap: 10px;
+	}
+
+	/* The way to the year beside this one, which it names. Where there is none, its room is kept. */
+	.to {
+		display: flex;
+		align-items: center;
+		gap: 3px;
+		width: 84px;
+		height: 40px;
+		padding: 0 8px;
+		border: 0;
+		border-radius: 999px;
+		background: none;
+		color: rgb(111 68 40 / 0.75);
+		font-family: var(--serif);
+		font-size: 21px;
+		font-weight: 600;
+		line-height: 1;
+	}
+
+	button.to {
+		cursor: pointer;
+		transition:
+			background 0.15s,
+			color 0.15s;
+	}
+
+	button.to:hover {
+		background: rgb(111 68 40 / 0.1);
+		color: #6f4428;
+	}
+
+	.before {
+		justify-content: flex-end;
+	}
+
+	.to path {
+		fill: none;
+		stroke: currentColor;
+		stroke-width: 2;
+		stroke-linecap: round;
+		stroke-linejoin: round;
 	}
 
 	h2 {
@@ -370,13 +429,8 @@
 		transition: background 0.15s;
 	}
 
-	.round:hover:not(:disabled) {
+	.round:hover {
 		background: rgb(111 68 40 / 0.1);
-	}
-
-	.round:disabled {
-		opacity: 0.25;
-		cursor: default;
 	}
 
 	.round path {
@@ -620,7 +674,25 @@
 
 		.year {
 			grid-area: year;
+			gap: 4px;
+		}
+
+		/* The year stands at the left here, so no room is kept for a year that is not there. */
+		span.to {
+			display: none;
+		}
+
+		.to {
+			width: auto;
+			font-size: 19px;
+		}
+
+		.before {
 			margin-left: -8px;
+		}
+
+		.year:has(span.to:first-child) h2 {
+			margin-left: 4px;
 		}
 
 		h2 {
