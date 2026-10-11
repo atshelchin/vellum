@@ -17,13 +17,32 @@
 	--success: #7fc79a;
 	--error: #f08a7c;
 
-	--serif: 'Cormorant Garamond Variable', 'Cormorant Garamond', Georgia, 'Times New Roman', serif;
+	/*
+	 * The faces for writing that the two below have no letters for: one for each
+	 * writing, made for reading at length in it, the same on every device and on
+	 * the cards. They are listed in lib/scripts.ts, which this must agree with,
+	 * and are fetched when there is such writing to show (lib/typefaces.ts).
+	 * Each is offered for its own writing and nothing else, so their order here
+	 * does not matter.
+	 */
+	--other-writing:
+		'LXGW WenKai', 'Gowun Batang', 'Noto Serif Thai', 'Noto Serif Devanagari', 'Noto Naskh Arabic',
+		'Frank Ruhl Libre';
+	/* Titles and dates. */
+	--serif:
+		'Cormorant Garamond Variable', 'Cormorant Garamond', var(--other-writing), Georgia,
+		'Times New Roman', serif;
 	--sans: 'Inter Variable', system-ui, -apple-system, 'Segoe UI', sans-serif;
-	/* After the hand, the faces a system may have that write Chinese by hand. */
-	--hand:
-		'Caveat Variable', 'Caveat', 'Hannotate SC', 'Kaiti SC', 'STKaiti', 'KaiTi', 'Segoe Print',
-		cursive;
+	/* The entries themselves: a face made for reading a book on a screen. */
+	--text: 'Literata Variable', 'Literata', var(--other-writing), Georgia, serif;
 	--mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+
+	/*
+	 * A browser asked for a slant that a face does not have will lean the face
+	 * over by force. Cormorant has a slant of its own; the faces that write
+	 * Chinese and Korean do not, and neither writing was ever written leaning.
+	 */
+	font-synthesis: weight;
 
 	--gutter: clamp(16px, 4vw, 40px);
 	--header: 64px;

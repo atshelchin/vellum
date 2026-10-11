@@ -14,6 +14,7 @@
 		type Diary,
 		type Entry
 	} from '#lib/vellum.ts';
+	import { facesFor } from '#lib/typefaces.ts';
 	import { wallet } from '#lib/wallet.svelte.ts';
 	import ExternalLink from './ExternalLink.svelte';
 	import Sealing from './Sealing.svelte';
@@ -140,6 +141,12 @@
 		field.style.setProperty('--content', `${content}px`);
 		field.scrollTop = scrolled;
 	}
+
+	// What is typed is shown in the face it will be written in. A face for
+	// Chinese, say, is not fetched until the first character of it is typed.
+	$effect(() => {
+		void facesFor(text);
+	});
 
 	function keep() {
 		try {
@@ -517,11 +524,9 @@
 		background-attachment: local;
 		background-position: 0 -6px;
 		color: var(--ink);
-		font-family: var(--hand);
-		font-size: 27px;
-		/* A hand's letters are small for their size. Writing that falls to another
-		   face, as Chinese does, is drawn to the same height, not to the same size. */
-		font-size-adjust: from-font;
+		/* The face the page will be set in, at about the size it will be read at. */
+		font-family: var(--text);
+		font-size: 21px;
 		line-height: var(--line);
 		caret-color: var(--wax);
 		overscroll-behavior: contain;
@@ -679,7 +684,8 @@
 			/* As tall as what is written. The sheet stops at the top of the screen, and then the page scrolls. */
 			height: var(--content, calc(var(--line) * 6));
 			padding: 0 16px 0 46px;
-			font-size: 24px;
+			/* Not under 16px: a phone zooms in on a field whose writing is smaller. */
+			font-size: 18px;
 		}
 
 		.cramped textarea {

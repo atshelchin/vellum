@@ -2,7 +2,8 @@
 	import '@fontsource-variable/inter';
 	import '@fontsource-variable/cormorant-garamond';
 	import '@fontsource-variable/cormorant-garamond/wght-italic.css';
-	import '@fontsource-variable/caveat';
+	import '@fontsource-variable/literata/wght.css';
+	import '@fontsource-variable/literata/wght-italic.css';
 	import '../app.css';
 	import { onMount } from 'svelte';
 	import { dev } from '$app/env';

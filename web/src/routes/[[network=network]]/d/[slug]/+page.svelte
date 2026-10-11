@@ -665,9 +665,9 @@
 	}
 
 	.plain .text {
-		font-family: var(--hand);
-		font-size: 26px;
-		line-height: 1.4;
+		font-family: var(--text);
+		font-size: 19px;
+		line-height: 1.75;
 		white-space: pre-wrap;
 		overflow-wrap: anywhere;
 	}

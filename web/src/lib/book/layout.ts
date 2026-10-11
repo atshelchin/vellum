@@ -79,7 +79,11 @@ const SETTINGS: Metrics[] = [
 	}
 ].map((setting) => ({ ...setting, width: PAGE_WIDTH, height: PAGE_HEIGHT }) as Metrics);
 
-/** The smallest the handwriting may appear on a screen, in CSS pixels. */
+/**
+ * The smallest a page's writing may be set for a screen, in CSS pixels. It is
+ * the size of the line, rule and all; the letters themselves are drawn at four
+ * fifths of it (`TEXT_SIZE` in `paint.ts`).
+ */
 const LEGIBLE = 19;
 
 /**

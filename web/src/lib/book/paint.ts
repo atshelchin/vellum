@@ -1,9 +1,11 @@
 import serifItalic from '@fontsource-variable/cormorant-garamond/files/cormorant-garamond-latin-wght-italic.woff2?url';
 import serifUpright from '@fontsource-variable/cormorant-garamond/files/cormorant-garamond-latin-wght-normal.woff2?url';
 import { dateParts, plural, shortAddress } from '../format';
+import { fromTheRight, SCRIPT_FAMILIES, scriptsIn, TEXT_FAMILY } from '../scripts';
+import { facesFor } from '../typefaces';
 import { COVERS, type CoverStyle } from './covers';
 import type { Face } from './faces';
-import { PAGE_HEIGHT, PAGE_WIDTH, textWidth, type Measure, type Metrics } from './layout';
+import { PAGE_HEIGHT, PAGE_WIDTH, textWidth, wrap, type Measure, type Metrics } from './layout';
 
 /**
  * Everything in the book that is drawn and not modelled: the pages, their
@@ -16,18 +18,20 @@ import { PAGE_HEIGHT, PAGE_WIDTH, textWidth, type Measure, type Metrics } from '
  */
 
 /**
- * The hand the diary is written in, and after it the faces a system may have
- * that write Chinese by hand, for the writing Caveat has no letters for.
+ * The face the entries are set in, and after it the faces for the writing it
+ * has no letters for (`lib/scripts.ts`). Each of those is offered for its own
+ * writing and nothing else, so a line in this list is drawn letter by letter
+ * in the right one, whichever way it runs. Last, what a device has of its
+ * own, for the moment before they arrive or the day they cannot be had.
  */
-export const HAND =
-	'"Caveat Variable", "Caveat", "Hannotate SC", "Kaiti SC", "STKaiti", "KaiTi", "Segoe Print", cursive';
+export const TEXT = `"${TEXT_FAMILY}", "Literata", ${SCRIPT_FAMILIES}, Georgia, serif`;
 /**
  * Cormorant, with figures that stand on the line. Its own are old-style, in
  * which a 1 is drawn as a small capital I: handsome in a sentence, and on a
  * page whose whole business is the date, the 11th reads as the Roman two.
  */
 const LINING = 'Vellum Serif';
-export const SERIF = `"${LINING}", "Cormorant Garamond Variable", "Cormorant Garamond", Georgia, serif`;
+export const SERIF = `"${LINING}", "Cormorant Garamond Variable", "Cormorant Garamond", ${SCRIPT_FAMILIES}, Georgia, serif`;
 const MONO = 'ui-monospace, "SF Mono", Menlo, Consolas, monospace';
 
 const PAPER = '#f4ecd9';
@@ -130,51 +134,47 @@ export async function faceReady(address: string): Promise<void> {
 }
 
 export async function fontsReady(text = ''): Promise<void> {
-	await liningFigures();
 	const sample = `Vellum 0123456789 ${text}`.slice(0, 4000);
+	// A face for other writing is not known to the page until there is some to
+	// write. Once it is, the pieces of it this text needs are waited for below.
+	await Promise.all([liningFigures(), facesFor(sample)]);
 	await Promise.allSettled([
-		document.fonts.load(`500 40px ${HAND}`, sample),
+		document.fonts.load(`400 40px ${TEXT}`, sample),
+		document.fonts.load(`italic 400 40px ${TEXT}`, sample),
 		document.fonts.load(`500 40px ${SERIF}`, sample),
 		document.fonts.load(`italic 500 40px ${SERIF}`, sample)
 	]);
 }
 
 /**
- * Chinese, Japanese and Korean, which another face has to write. Their letters
- * fill the height of a line where the hand's fill a third of it, so at the same
- * size they stand half as tall again beside it. They are drawn smaller: not
- * all the way down to the hand's height, because a character with twenty
- * strokes in it needs more room to be read than a letter with two.
+ * How large the entries are written, as a part of the size a page is set for.
+ * A page's sizes were reckoned for a line of writing with the rule it sits
+ * on; a face made for reading fills more of its size than that, and is set
+ * smaller to stand as tall.
  */
-const WIDE =
-	/((?:\p{Script=Han}|\p{Script=Hiragana}|\p{Script=Katakana}|\p{Script=Hangul}|[\u3000-\u303f\uff00-\uffef])+)/u;
-const WIDE_SCALE = 0.82;
+const TEXT_SIZE = 0.8;
 
-/**
- * Goes along a line a face at a time. `each` is given every run of it and how
- * far along the line the run begins. Returns how wide the line is.
- */
-function handRuns(
-	context: Context,
-	text: string,
-	size: number,
-	each?: (run: string, x: number) => void
-): number {
-	let x = 0;
-	// Split on a pattern that keeps what it matched: every other piece is a wide run.
-	text.split(WIDE).forEach((run, index) => {
-		if (run === '') return;
-		context.font = `500 ${index % 2 === 1 ? Math.round(size * WIDE_SCALE) : size}px ${HAND}`;
-		each?.(run, x);
-		x += context.measureText(run).width;
-	});
-	return x;
+/** The face of the entries, at the size a page is set for. */
+function written(size: number, slant = false): string {
+	return `${slant ? 'italic ' : ''}400 ${Math.round(size * TEXT_SIZE)}px ${TEXT}`;
 }
 
-/** How wide the hand writes a run of text, on a page set with `metrics`. */
+/**
+ * Whether a line can be slanted. A browser asked to slant a face that has no
+ * slant of its own leans it over by force, and neither Chinese nor Arabic was
+ * ever written leaning.
+ */
+function slants(text: string): boolean {
+	return scriptsIn(text).length === 0;
+}
+
+/** How wide the entries' face writes a run of text, on a page set with `metrics`. */
 export function createMeasure(metrics: Metrics): Measure {
 	const context = canvasOf(1, 1).getContext('2d')!;
-	return (text) => handRuns(context, text, metrics.fontSize);
+	return (text) => {
+		context.font = written(metrics.fontSize);
+		return context.measureText(text).width;
+	};
 }
 
 /** Text with air between its letters, which a canvas cannot be relied on to do itself. */
@@ -392,31 +392,24 @@ function paintText(
 	metrics: Metrics,
 	side: Side
 ) {
-	const { left, centre } = column(metrics, side);
+	const { left, right, centre } = column(metrics, side);
 	const skipped = face.heading === undefined ? 0 : metrics.lines - metrics.firstLines;
 	rules(context, metrics, side, skipped);
 	if (face.heading !== undefined) heading(context, metrics, side, face.heading);
 
-	// A hand does not keep to the line the way type does: each line sits a hair
-	// off it, and leans a hair.
-	const next = random(face.seed + 1);
 	context.fillStyle = INK;
-	context.textAlign = 'left';
 	context.textBaseline = 'alphabetic';
-	context.font = `500 ${metrics.fontSize}px ${HAND}`;
+	context.font = written(metrics.fontSize);
 	face.lines.forEach((line, index) => {
-		const lean = (next() - 0.5) * 0.007;
-		const dx = (next() - 0.5) * 7;
-		const dy = (next() - 0.5) * 4;
 		if (line === '') return;
-		const y = metrics.top + (skipped + index + 1) * metrics.lineHeight - metrics.lineHeight * 0.2;
-		context.save();
-		context.translate(left + dx, y + dy);
-		context.rotate(lean);
-		context.globalAlpha = 0.9 + next() * 0.1;
-		handRuns(context, line, metrics.fontSize, (run, x) => context.fillText(run, x, 0));
-		context.restore();
+		const y = metrics.top + (skipped + index + 1) * metrics.lineHeight - metrics.lineHeight * 0.24;
+		// A line in a writing that runs from the right starts at the right.
+		const rtl = fromTheRight(line);
+		context.direction = rtl ? 'rtl' : 'ltr';
+		context.textAlign = rtl ? 'right' : 'left';
+		context.fillText(line, rtl ? right : left, y);
 	});
+	context.direction = 'ltr';
 
 	if (face.pages > 1) {
 		context.fillStyle = 'rgb(111 68 40 / 0.62)';
@@ -546,7 +539,10 @@ function paintDate(context: Context, face: Extract<Face, { kind: 'date' }>, side
 	seal(context, centre, 1208, 88);
 }
 
-/** Sets a title on as few lines as it needs, in the largest size that fits. */
+/**
+ * Sets a title on as few lines as it needs, in the largest size that fits. A
+ * title in a writing with no spaces in it is broken where it has to be.
+ */
 function fitTitle(
 	context: Context,
 	title: string,
@@ -556,22 +552,11 @@ function fitTitle(
 	smallest: number,
 	maxLines: number
 ): { size: number; lines: string[] } {
+	const words = title.trim().replace(/\s+/g, ' ');
 	for (let size = largest; ; size -= 6) {
 		context.font = font(size);
-		const lines: string[] = [];
-		let line = '';
-		for (const word of title.trim().split(/\s+/)) {
-			const candidate = line ? `${line} ${word}` : word;
-			if (line && context.measureText(candidate).width > width) {
-				lines.push(line);
-				line = word;
-			} else {
-				line = candidate;
-			}
-		}
-		lines.push(line);
-		const fits = lines.every((each) => context.measureText(each).width <= width);
-		if ((fits && lines.length <= maxLines) || size <= smallest) return { size, lines };
+		const lines = wrap(words, width, (text) => context.measureText(text).width);
+		if (lines.length <= maxLines || size <= smallest) return { size, lines };
 	}
 }
 
@@ -586,18 +571,13 @@ function paintTitle(context: Context, face: Extract<Face, { kind: 'title' }>, si
 	context.strokeRect(centre - 358, 164, 716, PAGE_HEIGHT - 328);
 	fleuron(context, centre, 318, 9);
 
-	const { size, lines } = fitTitle(
-		context,
-		face.title,
-		(px) => `italic 600 ${px}px ${SERIF}`,
-		620,
-		136,
-		58,
-		4
-	);
+	const slant = slants(face.title) ? 'italic ' : '';
+	const titled = (px: number) => `${slant}600 ${px}px ${SERIF}`;
+	const { size, lines } = fitTitle(context, face.title, titled, 620, 136, 58, 4);
 	const leading = size * 1.08;
 	const top = 640 - ((lines.length - 1) * leading) / 2;
 	context.fillStyle = INK;
+	context.font = titled(size);
 	lines.forEach((line, index) => context.fillText(line, centre, top + index * leading));
 
 	const below = top + (lines.length - 1) * leading + 96;
@@ -706,16 +686,18 @@ function paintBookplate(context: Context, face: Extract<Face, { kind: 'bookplate
 
 	const account = shortAddress(face.owner as `0x${string}`);
 	if (face.name) {
-		// Signed, in the hand the diary is written in, as large as the plate has
+		// Signed, in the face the diary is written in, as large as the plate has
 		// room for. The account stays under it: a name can be anyone's.
-		let size = 100;
-		while (size > 44 && handRuns(context, face.name, size) > width - 120) size -= 4;
-		const start = centre - handRuns(context, face.name, size) / 2;
-		y += 92;
+		const signed = (px: number) => `${slants(face.name) ? 'italic ' : ''}400 ${px}px ${TEXT}`;
+		let size = 74;
+		context.font = signed(size);
+		while (size > 36 && context.measureText(face.name).width > width - 120) {
+			size -= 4;
+			context.font = signed(size);
+		}
+		y += 88;
 		context.fillStyle = INK;
-		context.textAlign = 'left';
-		handRuns(context, face.name, size, (run, x) => context.fillText(run, start + x, y));
-		context.textAlign = 'center';
+		context.fillText(face.name, centre, y);
 
 		y += 54;
 		context.fillStyle = 'rgb(111 68 40 / 0.85)';
@@ -751,7 +733,7 @@ function paintInvite(
 	// Pencilled in, waiting to be inked.
 	context.fillStyle = 'rgb(27 37 64 / 0.3)';
 	context.textAlign = 'left';
-	context.font = `500 ${metrics.fontSize}px ${HAND}`;
+	context.font = written(metrics.fontSize, true);
 	context.fillText(
 		'Dear diary,',
 		left,
@@ -989,13 +971,14 @@ function coverArt(context: Context, style: CoverStyle, pens: Pens, title: string
 		context.restore();
 	}
 
-	const { size, lines } = fitTitle(context, title, (px) => `600 ${px}px ${SERIF}`, 640, 128, 54, 4);
+	const stamped = (px: number) => `600 ${px}px ${SERIF}`;
+	const { size, lines } = fitTitle(context, title, stamped, 640, 128, 54, 4);
 	const leading = size * 1.1;
 	const middle = PAGE_HEIGHT * 0.4;
 	const top = middle - ((lines.length - 1) * leading) / 2;
 
 	fleuron(context, centre, top - size - 54, 10);
-	context.font = `600 ${size}px ${SERIF}`;
+	context.font = stamped(size);
 	lines.forEach((line, index) => {
 		const y = top + index * leading;
 		if (pens.colour) {

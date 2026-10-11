@@ -2,8 +2,9 @@ import { Resvg } from '@cf-wasm/resvg';
 import { COVERS } from '#lib/book/covers.ts';
 import { wrap } from '#lib/book/layout.ts';
 import { identiconSvg } from '#lib/identicon.ts';
+import { fromTheRight, runsOf, SCRIPTS, type Script } from '#lib/scripts.ts';
 import { SEAL_EDGE, SEAL_V } from '#lib/seal.ts';
-import { ownFonts, WIDE_FAMILY, wideFonts } from './fonts.ts';
+import { ownFonts, scriptFonts } from './fonts.ts';
 import widths from './widths.json';
 
 /**
@@ -62,19 +63,15 @@ const CREAM = '#f2eadb';
 const MUTED = '#b9ab95';
 const GOLD = '#d9b45a';
 
-type Face = 'hand' | 'serif' | 'italic';
+/** The faces that travel with the site: the one the entries are in, and the serif of the titles. */
+type Face = 'text' | 'textItalic' | 'serif' | 'italic';
 const FAMILY: Record<Face, string> = {
-	hand: 'Vellum Hand',
+	text: 'Vellum Text',
+	textItalic: 'Vellum Text Italic',
 	serif: 'Vellum Serif',
 	italic: 'Vellum Italic'
 };
 const LETTERS = widths as Record<Face, Record<string, number>>;
-
-/** Chinese, Japanese, and the punctuation that goes with them: what the card's own faces cannot write. */
-const WIDE =
-	/((?:\p{Script=Han}|\p{Script=Hiragana}|\p{Script=Katakana}|[\u3000-\u303f\uff00-\uffef])+)/u;
-/** Drawn smaller beside Latin, for the reason given where the book's pages are painted. */
-const WIDE_SCALE = 0.82;
 
 function escape(text: string): string {
 	return text.replace(/[&<>"']/g, (char) => `&#${char.charCodeAt(0)};`);
@@ -85,14 +82,14 @@ function escape(text: string): string {
  * nothing the faces at hand have no letter for. An emoji would print as an
  * empty box, and a box says less than its absence.
  */
-function settable(text: string, face: Face, wide: boolean): string {
+function settable(text: string, face: Face): string {
 	let kept = '';
-	for (const run of text.split(WIDE)) {
-		if (WIDE.test(run)) kept += wide ? run : ' ';
-		else
-			kept += Array.from(run, (char) => (char === '\n' || char in LETTERS[face] ? char : '')).join(
-				''
-			);
+	for (const run of runsOf(text)) {
+		// A writing a card would get wrong is left off it: see `card` in `lib/scripts.ts`.
+		if (run.script) kept += run.script.card === false ? ' ' : run.text;
+		else {
+			for (const char of run.text) if (char === '\n' || char in LETTERS[face]) kept += char;
+		}
 	}
 	return kept
 		.split('\n')
@@ -105,22 +102,29 @@ function settable(text: string, face: Face, wide: boolean): string {
 function measure(face: Face, size: number): (text: string) => number {
 	return (text) => {
 		let width = 0;
-		text.split(WIDE).forEach((run, index) => {
-			if (index % 2 === 1) width += Array.from(run).length * size * WIDE_SCALE;
-			else for (const char of run) width += (LETTERS[face][char] ?? 0.5) * size;
-		});
+		for (const run of runsOf(text)) {
+			if (run.script) {
+				// A mark that sits on a letter takes no room of its own.
+				const letters = Array.from(run.text).filter((char) => !/\p{M}/u.test(char)).length;
+				width += letters * size * run.script.advance;
+			} else {
+				for (const char of run.text) width += (LETTERS[face][char] ?? 0.5) * size;
+			}
+		}
 		return width;
 	};
 }
 
-/** A line as SVG: its Latin in the face asked for, its Chinese in the faces fetched for it. */
-function spans(text: string, size: number): string {
-	return text
-		.split(WIDE)
-		.map((run, index) =>
-			index % 2 === 1
-				? `<tspan font-family="${WIDE_FAMILY}" font-size="${Math.round(size * WIDE_SCALE)}">${escape(run)}</tspan>`
-				: escape(run)
+/**
+ * A line as SVG: what the card's own face writes, in that face, and every
+ * other writing in the face that the book uses for it (`lib/scripts.ts`).
+ */
+function spans(text: string): string {
+	return runsOf(text)
+		.map((run) =>
+			run.script
+				? `<tspan font-family="${run.script.family}">${escape(run.text)}</tspan>`
+				: escape(run.text)
 		)
 		.join('');
 }
@@ -139,7 +143,7 @@ function line(x: number, y: number, text: string, style: Style): string {
 		style.anchor ? ` text-anchor="${style.anchor}"` : ''
 	}${style.spacing ? ` letter-spacing="${style.spacing}"` : ''}${
 		style.opacity ? ` opacity="${style.opacity}"` : ''
-	} xml:space="preserve">${spans(text, style.size)}</text>`;
+	} xml:space="preserve">${spans(text)}</text>`;
 }
 
 /** Cuts a line short enough to fit, and says that it was cut. */
@@ -335,9 +339,9 @@ function diary(card: Extract<Card, { kind: 'diary' }>): string {
 		{ face: 'italic', size: 31, fill: MUTED }
 	);
 
-	// Something of what is in it: the latest words, in the hand they are read in.
+	// Something of what is in it: the latest words, in the face they are read in.
 	if (card.latest) {
-		const fits = measure('hand', 40);
+		const fits = measure('text', 32);
 		const quoted = excerpt(card.latest, width - 26, 2, fits);
 		if (quoted.length > 0) {
 			y += 58;
@@ -345,8 +349,8 @@ function diary(card: Extract<Card, { kind: 'diary' }>): string {
 			out += quoted
 				.map((each, index) =>
 					line(left + 24, y + 6 + index * 50, each, {
-						face: 'hand',
-						size: 40,
+						face: 'text',
+						size: 32,
 						fill: CREAM,
 						opacity: 0.92
 					})
@@ -383,7 +387,7 @@ function entry(card: Extract<Card, { kind: 'entry' }>): string {
 	const left = 178;
 	const right = 1112;
 	const rows = [246, 308, 370, 432, 494];
-	const fits = measure('hand', 50);
+	const fits = measure('text', 39);
 	const body = excerpt(card.text, right - left, rows.length, fits);
 
 	let out = night;
@@ -412,7 +416,12 @@ function entry(card: Extract<Card, { kind: 'entry' }>): string {
 	out += `<path d="M150 164H1136" stroke="${SEPIA}" stroke-opacity="0.5" stroke-width="2"/><path d="M150 171H1136" stroke="${SEPIA}" stroke-opacity="0.5" stroke-width="1"/>`;
 
 	out += body
-		.map((each, index) => line(left, rows[index] - 14, each, { face: 'hand', size: 50, fill: INK }))
+		.map((each, index) =>
+			fromTheRight(each)
+				? // A line in a writing that runs from the right starts at the right.
+					line(right, rows[index] - 17, each, { face: 'text', size: 39, fill: INK, anchor: 'end' })
+				: line(left, rows[index] - 17, each, { face: 'text', size: 39, fill: INK })
+		)
 		.join('');
 
 	// Whose page it is, and which of their books it is from.
@@ -448,16 +457,25 @@ function entry(card: Extract<Card, { kind: 'entry' }>): string {
 	return out;
 }
 
-/** Every character on a card that the card's own faces cannot write. */
-function wideIn(card: Card): string {
-	if (card.kind === 'home') return '';
-	const text =
-		card.kind === 'diary' ? `${card.title}${card.latest ?? ''}` : `${card.title}${card.text}`;
-	// No more than a card could ever show: an entry can be twenty thousand characters long.
-	return `${card.penName}${text.slice(0, 600)}`
-		.split(WIDE)
-		.filter((_, index) => index % 2 === 1)
-		.join('');
+/**
+ * Every character a card draws in a face other than its own, by the writing
+ * it is: read back off the finished drawing, so that no more of a face is
+ * fetched than is on the card.
+ */
+function otherWriting(svg: string): Map<Script['id'], Set<string>> {
+	const written = new Map<Script['id'], Set<string>>();
+	for (const [, family, text] of svg.matchAll(
+		/<tspan font-family="([^"]+)"[^>]*>([^<]*)<\/tspan>/g
+	)) {
+		const script = SCRIPTS.find((each) => each.family === family);
+		if (!script) continue;
+		const characters = written.get(script.id) ?? new Set<string>();
+		// Undoing `escape`, which wrote the five characters XML keeps for itself as numbers.
+		const plain = text.replace(/&#(\d+);/g, (_, code) => String.fromCharCode(Number(code)));
+		for (const character of plain) characters.add(character);
+		written.set(script.id, characters);
+	}
+	return written;
 }
 
 export interface Drawn {
@@ -467,25 +485,22 @@ export interface Drawn {
 }
 
 export async function renderCard(card: Card): Promise<Drawn> {
-	const wanted = wideIn(card);
-	const [own, wide] = await Promise.all([ownFonts(), wideFonts(wanted)]);
-	const chinese = wide.length > 0;
-
 	// What cannot be set is left out before anything is measured.
 	let drawn = card;
 	if (card.kind === 'diary') {
 		drawn = {
 			...card,
-			title: settable(card.title, 'serif', chinese) || 'A diary',
-			penName: settable(card.penName, 'serif', chinese),
-			latest: card.latest ? settable(card.latest.slice(0, 600), 'hand', chinese) : undefined
+			title: settable(card.title, 'serif') || 'A diary',
+			penName: settable(card.penName, 'serif'),
+			// No more than a card could ever show: an entry can be twenty thousand characters long.
+			latest: card.latest ? settable(card.latest.slice(0, 600), 'text') : undefined
 		};
 	} else if (card.kind === 'entry') {
 		drawn = {
 			...card,
-			title: settable(card.title, 'italic', chinese) || 'a diary',
-			penName: settable(card.penName, 'serif', chinese),
-			text: settable(card.text.slice(0, 600), 'hand', chinese)
+			title: settable(card.title, 'italic') || 'a diary',
+			penName: settable(card.penName, 'serif'),
+			text: settable(card.text.slice(0, 600), 'text')
 		};
 	}
 
@@ -493,14 +508,15 @@ export async function renderCard(card: Card): Promise<Drawn> {
 		drawn.kind === 'home' ? home() : drawn.kind === 'diary' ? diary(drawn) : entry(drawn)
 	}</svg>`;
 
+	const [own, other] = await Promise.all([ownFonts(), scriptFonts(otherWriting(svg))]);
 	const resvg = await Resvg.async(svg, {
 		font: {
-			fontBuffers: [...own, ...wide],
+			fontBuffers: [...own, ...other.fonts],
 			loadSystemFonts: false,
 			defaultFontFamily: 'Vellum Serif'
 		}
 	});
-	return { png: resvg.render().asPng(), whole: wanted === '' || chinese };
+	return { png: resvg.render().asPng(), whole: other.whole };
 }
 
 /** A card that came out short of its letters is kept only a minute, so that the next asking can do better. */

@@ -48,10 +48,16 @@
 	},
 	"dependencies": {
 		"@cf-wasm/resvg": "^0.4.0",
-		"@fontsource-variable/caveat": "^5.3.0",
 		"@fontsource-variable/cormorant-garamond": "^5.3.0",
 		"@fontsource-variable/inter": "^5.3.0",
+		"@fontsource-variable/literata": "^5.3.0",
+		"@fontsource/frank-ruhl-libre": "^5.3.0",
+		"@fontsource/gowun-batang": "^5.3.0",
+		"@fontsource/noto-naskh-arabic": "^5.3.0",
+		"@fontsource/noto-serif-devanagari": "^5.3.0",
+		"@fontsource/noto-serif-thai": "^5.3.0",
 		"identicons-esm": "1.0.1",
+		"lxgw-wenkai-webfont": "1.7.0",
 		"three": "^0.186.1",
 		"viem": "^2.57.4"
 	}

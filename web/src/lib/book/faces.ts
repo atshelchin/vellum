@@ -32,8 +32,6 @@ export type Face = { key: string } & (
 			heading?: number;
 			page: number;
 			pages: number;
-			/** What the hand that wrote it wavers by. The same entry always wavers the same way. */
-			seed: number;
 	  }
 	| { kind: 'blank'; mark: boolean }
 	/** The owner's next page, not yet written. */
@@ -98,8 +96,7 @@ export function entryFaces(
 			lines,
 			heading: page === 0 ? entry.writtenAt : undefined,
 			page: page + 1,
-			pages: pages.length,
-			seed: entry.index * 131 + page
+			pages: pages.length
 		}))
 	];
 	if (faces.length % 2 === 1) faces.push({ key: 'blank:mark', kind: 'blank', mark: true });
